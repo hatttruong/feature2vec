@@ -1,0 +1,6 @@
+sshtunnel
+pandas
+seaborn
+scikit-learn
+psycopg2
+configparser

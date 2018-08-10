@@ -1,0 +1,88 @@
+concept, unitname, numeric, itemids
+Heart Rate, bpm, 211 220045
+Heart rate Alarm - High, bpm, 8549   220046
+Heart Rate Alarm - Low, bpm, 5815  220047
+Heart Rhythm,, 212   220048
+Ectopy Type 1,,161  224650
+Ectopy Type 2,,162  226479
+Ectopy Frequency 1,,159 224651
+Ectopy Frequency 2,,160 226480
+
+
+Hemoglobin,g/dl,814 220228
+Hematocrit,%,813    3761
+Hematocrit (serum),%,220545
+Hematocrit (whole blood - calc),%,226540
+Red Blood Cells (RBC),mcl,833
+WBC,K/uL,1542   220546  861 4200    1127
+Differential-Lymphs,%,798   225641
+Differential-Monos,%,799    225642
+Differential-Basos,%,796    225639
+Differential-Eos,%,797  225640
+Differential-Bands,%,795    225638
+Differential-Atyps,%,794    225637
+Differential-Neuts (Differential-Polys),%,800    225643
+Platelets,,828 3789
+Platelet Count,K/uL,6256 227457
+Sodium,,837  3803    1536
+Sodium (serum),mEq/L,220645
+Sodium (whole blood),mEq/L,226534
+Potassium,,829 3792    1535
+Potassium (serum),mEq/L,227442
+Potassium (whole blood),mEq/L,227464
+Chloride,,788   1523
+Chloride (serum),mEq/L,220602
+Chloride (whole blood),mEq/L,226536
+Carbon Dioxide (CO2),,777 787 4199 3808 3810
+Arterial CO2(Calc),,
+Creatinine,mg/dL,791   1525 220615  3750
+Blood urea nitrogen (BUN),mg/dL,781   1162    225624
+ALT,IU/L,769    220644
+AST,IU/L,770    220587
+Alkaline Phosphate (ALP),IU/L,773   225612
+Albumin,g/dL,1521   227456  3066    772 2358
+Total Protein,g/dL,1539 220650  849
+CK-MB,ng/mL,227445
+CK-MB fraction (%),%,225628
+Brain Natiuretic Peptide (BNP),pg/mL,227446
+Calcium,mg/dl,786   1522
+Ionized Calcium,mmol/L,816  225667  8325    8177
+Calcium non-ionized,mg/dL,225625
+Magnesium,mg/dL,821 1532    220635
+Phosphorous,mEq/L,827   1534    225677
+Glucose,,811    1529
+Fingerstick Glucose,,807,225664,1310,2338
+C Reactive Protein (CRP),mg/L,227444
+Uric Acid,mg/dL,853     6058        1541        225695
+Direct Bilirubin,mg/dL,225651   803 1527
+Total Bilirubin,mg/dL,225690    848 1538
+Urine Source,,707   224015
+Urine Color,,706    224016
+Urine Appearance,,8480  224876
+Specific Gravity (urine),g/cc,227471
+
+Respiratory Rate,bpm,618   220210
+Resp Alarm [Low],bpm,5819  224162
+Resp Alarm [High],bpm,8553   224161
+Respiratory Pattern,,617    223985
+O2 saturation pulseoxymetry (SpO2),%,646 220277
+SpO2 Alarm [Low],%,5820 223770
+SpO2 Alarm [High],%,8554    223769
+RUL Lung Sounds,,599    223986
+LUL Lung Sounds,,428 223988
+LLL Lung Sounds,,425 223989
+RLL Lung Sounds,,593 223987
+LU Strength/Movement,,426 223919
+RL Strength/Movement,,590 223918
+LL Strength/Movement,,423 223920
+RU Strength/Movement,,596 223917
+
+Height (inch),inch,920  226707
+Height (cm),cm,226730
+Admission Weight (Kg),kg,762    226512
+Admission Weight (lbs.),lbs,226531
+Temperature Celsius,Deg. C,676   677 223762
+Temperature Fahrenheit,Deg. F,678   679 223761
+
+
+Support Systems,,663    224023
