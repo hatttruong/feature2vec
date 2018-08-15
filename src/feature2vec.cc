@@ -34,22 +34,22 @@ void Feature2Vec::trainThread(int32_t threadId) {
   Model model(input_, output_, args_, threadId);
   model.setTargetCounts(dict_->getCounts());
 
-  const int64_t ntokens = dict_->ntokens();
-  int64_t localTokenCount = 0;
-  std::vector<int32_t> line;
-  while (tokenCount_ < args_->epoch * ntokens) {
-    real progress = real(tokenCount_) / (args_->epoch * ntokens);
+  const int64_t nevents = dict_->nevents();
+  int64_t localEventCount = 0;
+  std::vector<int32_t> events; // list of events of one admission
+  while (eventCount_ < args_->epoch * nevents) {
+    real progress = real(eventCount_) / (args_->epoch * nevents);
     real lr = args_->lr * (1.0 - progress);
     if (args_->model == model_name::cbow) {
-      // localTokenCount += dict_->getLine(ifs, line, model.rng);
-      // cbow(model, lr, line);
+      localEventCount += dict_->getEvents(ifs, events, model.rng);
+      cbow(model, lr, events);
     } else if (args_->model == model_name::sg) {
-      localTokenCount += dict_->getAdmission(ifs, line, model.rng);
-      // skipgram(model, lr, line);
+      localEventCount += dict_->getEvents(ifs, events, model.rng);
+      // skipgram(model, lr, events);
     }
-    if (localTokenCount > args_->lrUpdateRate) {
-      tokenCount_ += localTokenCount;
-      localTokenCount = 0;
+    if (localEventCount > args_->lrUpdateRate) {
+      eventCount_ += localEventCount;
+      localEventCount = 0;
       if (threadId == 0 && args_->verbose > 1)
         loss_ = model.getLoss();
     }
@@ -85,18 +85,18 @@ void Feature2Vec::train(const Args args) {
 
 void Feature2Vec::startThreads() {
   start_ = std::chrono::steady_clock::now();
-  tokenCount_ = 0;
+  eventCount_ = 0;
   loss_ = -1;
   std::vector<std::thread> threads;
   for (int32_t i = 0; i < args_->thread; i++) {
     threads.push_back(std::thread([ = ]() { trainThread(i); }));
   }
-  const int64_t ntokens = dict_->ntokens();
+  const int64_t nevents = dict_->nevents();
   // Same condition as trainThread
-  while (tokenCount_ < args_->epoch * ntokens) {
+  while (eventCount_ < args_->epoch * nevents) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     if (loss_ >= 0 && args_->verbose > 1) {
-      real progress = real(tokenCount_) / (args_->epoch * ntokens);
+      real progress = real(eventCount_) / (args_->epoch * nevents);
       std::cerr << "\r";
       printInfo(progress, loss_, std::cerr);
     }
@@ -122,7 +122,7 @@ void Feature2Vec::printInfo(real progress, real loss, std::ostream& log_stream) 
   if (progress > 0 && t >= 0) {
     progress = progress * 100;
     eta = t * (100 - progress) / progress;
-    wst = double(tokenCount_) / t / args_->thread;
+    wst = double(eventCount_) / t / args_->thread;
   }
   int32_t etah = eta / 3600;
   int32_t etam = (eta % 3600) / 60;
@@ -130,12 +130,44 @@ void Feature2Vec::printInfo(real progress, real loss, std::ostream& log_stream) 
   log_stream << std::fixed;
   log_stream << "Progress: ";
   log_stream << std::setprecision(1) << std::setw(5) << progress << "%";
-  log_stream << " words/sec/thread: " << std::setw(7) << int64_t(wst);
+  log_stream << " features/sec/thread: " << std::setw(7) << int64_t(wst);
   log_stream << " lr: " << std::setw(9) << std::setprecision(6) << lr;
   log_stream << " loss: " << std::setw(9) << std::setprecision(6) << loss;
   log_stream << " ETA: " << std::setw(3) << etah;
   log_stream << "h" << std::setw(2) << etam << "m";
   log_stream << std::flush;
+}
+
+
+void Feature2Vec::cbow(Model& model, real lr,
+                       const std::vector<int32_t>& events) {
+  std::vector<int32_t> bow;
+  std::uniform_int_distribution<> uniform(1, args_->ws);
+  // for (int32_t w = 0; w < events.size(); w++) {
+  //   int32_t boundary = uniform(model.rng);
+  //   bow.clear();
+  //   for (int32_t c = -boundary; c <= boundary; c++) {
+  //     if (c != 0 && w + c >= 0 && w + c < events.size()) {
+  //       const std::vector<int32_t>& ngrams = dict_->getSubwords(events[w + c]);
+  //       bow.insert(bow.end(), ngrams.cbegin(), ngrams.cend());
+  //     }
+  //   }
+  //   model.update(bow, events[w], lr);
+  // }
+}
+
+void Feature2Vec::skipgram(Model& model, real lr,
+                           const std::vector<int32_t>& events) {
+  std::uniform_int_distribution<> uniform(1, args_->ws);
+  // for (int32_t w = 0; w < events.size(); w++) {
+  //   int32_t boundary = uniform(model.rng);
+  //   const std::vector<int32_t>& ngrams = dict_->getSubwords(events[w]);
+  //   for (int32_t c = -boundary; c <= boundary; c++) {
+  //     if (c != 0 && w + c >= 0 && w + c < events.size()) {
+  //       model.update(ngrams, events[w + c], lr);
+  //     }
+  //   }
+  // }
 }
 
 }

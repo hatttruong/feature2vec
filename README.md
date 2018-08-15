@@ -48,5 +48,7 @@ $ make
 ## Example use cases
 
 ```
-$ ./fearture2vec test -input output/feature_definition.json -output model
+$ ./fearture2vec test -dict output/feature_definition.json -input output/sample_train.csv -output aaa
+
+$ ./feature2vec train -dict output/feature_definition.json -input output/sample_train.csv -output aaa -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```

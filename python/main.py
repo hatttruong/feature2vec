@@ -30,17 +30,6 @@ def represents_int(s):
     except ValueError:
         return False
 
-
-def hash(str):
-    h = 2166136261
-    for (i=0
-         i < str.size()
-         i + +)
-        h = h ^ uint32_t(int8_t(str[i]))
-        h = h * 16777619
-
-    return h
-
 # define_features()
 
 # group_items = [
@@ -70,5 +59,5 @@ def hash(str):
 #         ids, os.path.join('data', 'raw', '%s.csv' % group_item))
 
 # define_features('../data/raw', )
-# redefine_features(os.path.join('../output', 'feature_definition.json.backup'))
+redefine_features(os.path.join('../output', 'feature_definition.json.backup'))
 # create_train_dataset('../output')

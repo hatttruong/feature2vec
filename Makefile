@@ -7,8 +7,8 @@
 # of patent rights can be found in the PATENTS file in the same directory.
 #
 
-CXX = c++
-CXXFLAGS = -pthread -std=c++0x -march=native -ljsoncpp
+CXX = g++
+CXXFLAGS = -pthread -std=c++11 -march=native -ljsoncpp
 OBJS =  jsoncpp.o args.o dictionary.o matrix.o vector.o model.o utils.o feature2vec.o
 INCLUDES = -I.
 

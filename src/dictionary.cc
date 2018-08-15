@@ -24,25 +24,28 @@
 namespace feature2vec {
 
 Dictionary::Dictionary(std::shared_ptr<Args> args) :
-  args_(args), size_(0), nfeatures_def_(0), nfeatures_(0), ntokens_(0) {
-  init();
+  args_(args), feature2int_(MAX_FEATURE_SIZE, -1), size_(0), ndefinition_(0),
+  nfeatures_(0), nevents_(0) {
+  initDefinition();
 }
 
-void Dictionary::init() {
+void Dictionary::initDefinition() {
   // load feature definition from json
   std::ifstream in(args_->dict);
   if (!in.is_open()) {
     throw std::invalid_argument(args_->dict + " cannot be opened for load feature definition!");
   }
-
+  // std::map<int32_t, std::string> hashTable; // TOBEREMOVE
   Json::Reader reader;
   Json::Value obj;
-  int32_t numeric_value;
-  int32_t id;
   reader.parse(in, obj); // reader can also read strings
   if (args_->verbose > 0) {
-    std::cerr << "Number of features:  " << obj.size() << std::endl;
+    std::cerr << "Number of features definitions in file:  " << obj.size() << std::endl;
   }
+
+  int32_t n_values = 0; // count number of feature values
+  int32_t n_segments = 0; // count number of segment values
+  int32_t numeric_value; // contain value of features/segments
   for (int i = 0; i < obj.size(); i++) {
     feature_definition f;
     f.itemid = obj[i]["itemid"].asInt64();
@@ -63,21 +66,12 @@ void Dictionary::init() {
         numeric_value = data[j]["value"].asInt64();
       } else {
         numeric_value = hash(data[j]["value"].asString());
-        // std::cerr << "Hash value of '" << data[j]["value"].asString() << "' is: " << numeric_value << std::endl;
+        // TOBEREMOVE
+        // hashTable[numeric_value] = data[j]["value"].asString();
       }
-      // id = data[j]["id"].asInt64();
-      f.values[numeric_value] = -1;
-      // if (features_.find(id) == features_.end()) {
-      //   entry e;
-      //   e.itemid = f.itemid;
-      //   e.id = id;
-      //   e.count = 0;
-      //   features_[id] = e;
-      // } else {
-      //   std::cerr << "ERROR: itemid=" << f.itemid << ": value='" << numeric_value << "' with id=" << id << " is duplicated" << std::endl;
-      //   throw std::invalid_argument("ERROR: id is duplicated");
-      // }
-
+      f.value2id[numeric_value] = n_values + n_segments;
+      f.id2value[f.value2id[numeric_value]] = numeric_value;
+      n_values++;
     }
 
     // array of segments, it only applies for numeric features
@@ -85,18 +79,34 @@ void Dictionary::init() {
     for (int j = 0; j < segments.size(); j++) {
       if (f.type == feature_type::numeric) {
         numeric_value = segments[j]["value"].asInt64();
-        // id = segments[j]["id"].asInt64();
-        f.segments[numeric_value] = -1;
+        f.segment2id[numeric_value] = n_values + n_segments;
+        n_segments++;
       }
     }
-    features_def_[f.itemid] = f;
-    nfeatures_def_ += 1;
+    definition_[f.itemid] = f;
+    ndefinition_ += 1;
   }
 
+  if (n_segments > args_->bucket) {
+    throw std::invalid_argument(
+      args_->bucket + " is not enough.Total segments are " + n_segments);
+  }
   if (args_->verbose > 0) {
-    std::cerr << "Number of feature definitions: " << nfeatures_def_ << std::endl;
+    std::cerr << "Number of parsed feature definitions: " << ndefinition_ << std::endl;
+    std::cerr << "Number of feature values: " << n_values << std::endl;
+    std::cerr << "Number of feature segments: " << n_segments << std::endl;
   }
   in.close();
+
+  // TOBEREMOVE: export hashTable to file
+  // std::ofstream ofs;
+  // ofs.open ("hash_test.txt");
+  // for (auto const& x : hashTable)
+  // {
+  //   ofs << x.second << ","  << x.first <<"\n";
+  //   ofs.write((char*)&x.first, sizeof(uint32_t));
+  // }
+  // ofs.close();
 }
 
 int32_t Dictionary::nfeatures() const {
@@ -104,28 +114,24 @@ int32_t Dictionary::nfeatures() const {
 }
 
 
-int64_t Dictionary::ntokens() const {
-  return ntokens_;
+int64_t Dictionary::nevents() const {
+  return nevents_;
 }
 
-void Dictionary::countTokens(std::istream& ifs) {
+void Dictionary::countEvents(std::istream& ifs) {
 
-  ntokens_ = std::count(std::istreambuf_iterator<char>(ifs),
+  nevents_ = std::count(std::istreambuf_iterator<char>(ifs),
                         std::istreambuf_iterator<char>(), '\n') - 1;
   if (args_->verbose > 0) {
-    std::cerr << "Number of tokens: " << ntokens_ << std::endl;
+    std::cerr << "Number of events: " << nevents_ << std::endl;
   }
 }
 
-void Dictionary::readFromFile(std::istream& in) {
-
-  std::string::size_type sz;   // alias of size_t
-  int32_t id;
-  bool is_first_row = true;
+bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) const {
   std::streambuf& sb = *in.rdbuf();
-  std::string temp_word;
-  std::vector<std::string> v;
   int c;
+  std::string temp_word;
+  v.clear();
   while ((c = sb.sbumpc()) != EOF) {
 
     if (c == ',' || c == '\n') {
@@ -133,73 +139,140 @@ void Dictionary::readFromFile(std::istream& in) {
       temp_word.clear();
 
       if (c == '\n') {
-        if (is_first_row == true) {
-          is_first_row = false;
-          v.clear();
-          continue;
-        }
-
-        if (v.size() >= 3) {
-          id = std::stoi(v[2], &sz);
-          features_[id].count += 1;
-          ntokens_ += 1;
-        }
-        v.clear();
+        return true;
       }
     } else {
       temp_word.push_back(c);
     }
   }
+  return false;
+}
 
-  // remove features with number of entries is zero
-  for (auto const& x : features_)
-  {
-    if (x.second.count > 0) {
-      std::cout << "id=" << x.first << ", itemid=" << x.second.itemid << ", count=" << x.second.count << std::endl;
-      nfeatures_ += 1;
-    } else {
-      features_.erase(x.first);
+void Dictionary::readFromFile(std::istream& in) {
+
+  std::string::size_type sz;   // alias of size_t
+  int32_t itemid;
+  std::vector<std::string> v;
+  while (readFeature(in, v)) {
+    // hadm_id,minutes_ago,itemid,value
+    if (v.size() >= 4) {
+      // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+      // std::cerr << ", itemid=" << v[2] << ", value=" << v[3] << std::endl;
+      itemid = std::stoi(v[2], &sz);
+      add(itemid, v[3]);
     }
   }
-  std::cerr << "Number of features: " << nfeatures_ << std::endl;
-  std::cerr << "Number of tokens: " << ntokens_ << std::endl;
+
+  initSegments();
+
+  nfeatures_ = features_.size();
+
+  if (args_->verbose > 0) {
+    std::cerr << "Number of features: " << nfeatures_ << std::endl;
+    std::cerr << "Number of events: " << nevents_ << std::endl;
+  }
+
+  if (size_ == 0) {
+    throw std::invalid_argument(
+      "Empty vocabulary. Try a smaller -minCount value.");
+  }
 }
 
-// read line by line, each line is a chartevent
-// read until finish an admission (train data is sorted by hadm_id, minutes_ago)
-//
-int32_t Dictionary::getAdmission(std::istream & in,
-                                 std::vector<int32_t>& features,
-                                 std::minstd_rand & rng) const {
-  std::uniform_real_distribution<> uniform(0, 1);
-  std::string token;
-  int32_t ntokens = 0;
-
-  // parse itemid to check if it is numeric or category
-  // parse value and look up in features_ to get its value's index
-
-  // reset(in);
-  // features.clear();
-  // while (readWord(in, token)) {
-  //   int32_t h = find(token);
-  //   int32_t fid = features2int_[h];
-  //   if (fid < 0) continue;
-
-  //   ntokens++;
-  //   features.push_back(fid);
-
-  //   if (ntokens > MAX_EVENTS_SIZE) break;
-  // }
-  return 2;
+void Dictionary::add(const int32_t itemid, const std::string& value) {
+  int32_t h = find(itemid, value);
+  nevents_++;
+  if (feature2int_[h] == -1) {
+    entry e;
+    e.id = h;
+    e.itemid = itemid;
+    e.value = value.c_str();
+    e.count = 1;
+    features_.push_back(e);
+    feature2int_[h] = size_++;
+  } else {
+    features_[feature2int_[h]].count++;
+  }
 }
 
+
+int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
+  int32_t id = -1;
+
+  struct feature_definition f = definition_.at(itemid);
+  if (f.type == feature_type::numeric) {
+    // convert value to int
+    std::string::size_type sz;   // alias of size_t
+    int32_t int_value = std::stoi(value, &sz);
+    if (int_value < f.min_value) {
+      id = f.value2id[f.min_value - 1];
+    } else if (int_value > f.max_value) {
+      id = f.value2id[f.max_value + 1];
+    } else {
+      id = f.value2id[int_value];
+    }
+  } else {
+    // hash value and look up id
+    id = f.value2id[hash(value)];
+  }
+  return id;
+}
+
+// hash category feature to int
 uint32_t Dictionary::hash(const std::string & str) const {
   uint32_t h = 2166136261;
   for (size_t i = 0; i < str.size(); i++) {
+    //TOBEREMOVE
+    // std::cerr << str[i] << "=" << uint32_t(int8_t(str[i])) << std::endl;
     h = h ^ uint32_t(int8_t(str[i]));
+    //TOBEREMOVE
+    // std::cerr << "h^ = " << h << std::endl;
     h = h * 16777619;
+    //TOBEREMOVE
+    // std::cerr << "h * = " << h << std::endl;
+    // std::cerr << std::endl;
   }
   return h;
+}
+
+// initSegments applied for numeric features only
+// input_ has size of nfeatures_ + args_-> bucket
+// index of segment in input_ vector is specified by this formular:
+// nfeatures_ + definitions_[itemid].segments[xx] % args_-> bucket
+void Dictionary::initSegments() {
+  int32_t itemid;
+  int32_t value;
+  for (size_t i = 0; i < size_; i++) {
+    features_[i].segments.clear();
+    // add itself
+    features_[i].segments.push_back(i);
+
+    // compute its segments
+    itemid = features_[i].itemid;
+    if (definition_[itemid].type == feature_type::numeric) {
+      value = definition_[itemid].id2value[features_[i].id];
+      computeSegments(itemid, value, features_[i].segments);
+    }
+  }
+}
+
+void Dictionary::computeSegments(const int32_t itemid, const int32_t value,
+                                 std::vector<int32_t>& nsegments) const {
+  int32_t h;
+  int32_t seg_idx;
+
+  // -1 in order to add value below min_value
+  int32_t min_value = definition_.at(itemid).min_value - 1;
+  // + 1 in order to add value greater than max_value
+  int32_t max_value = definition_.at(itemid).max_value + 1;
+
+  for (size_t i = min_value; i <= max_value; i++) {
+    if (i > value) {
+      break;
+    }
+    seg_idx = definition_.at(itemid).segment2id.at(i);
+    h = seg_idx % args_->bucket;
+    nsegments.push_back(h);
+  }
 }
 
 std::vector<int64_t> Dictionary::getCounts() const {
@@ -210,27 +283,52 @@ std::vector<int64_t> Dictionary::getCounts() const {
   return counts;
 }
 
-// int32_t Dictionary::getId(const int32_t itemid, const std::string& value) const {
-//   int32_t id;
-//   if (features_[itemid].type == feature_type::numeric) {
-//     // multiply with *multiply, convert to int
-//     features_[itemid]
-//   } else {
-//     uint32_t h = hash(value);
-//   }
-//   int32_t id = find(w, h);
-//   return id;
-// }
+// read line by line, each line is a chartevent
+// read until finish an admission (train data is sorted by hadm_id, minutes_ago)
+int32_t Dictionary::getEvents(std::istream & in,
+                              std::vector<int32_t>& features,
+                              std::minstd_rand & rng) const {
+  std::uniform_real_distribution<> uniform(0, 1);
+  std::string::size_type sz;   // alias of size_t
+  int32_t nevents = 0;
 
-// int32_t Dictionary::getId(const int32_t itemid, const std::string& value) const {
-//   int32_t id = -1;
-//   if (features_[itemid].type == feature_type::category) {
-//     uint32_t h = hash(value);
-//     id = features_[itemid].values[h];
-//   } else {
+  int32_t cur_hadm_id = -1;
+  int32_t new_hadm_id;
+  std::vector<std::string> v;
+  int32_t itemid;
+  features.clear();
+  int32_t pos = 0;
+  while (readFeature(in, v)) {
+    // hadm_id,minutes_ago,itemid,value
+    if (v.size() >= 4) {
+      new_hadm_id = std::stoi(v[0], &sz);
 
-//   }
-//   return id;
-// }
+      // for the first event of admission
+      if (cur_hadm_id == -1) {
+        cur_hadm_id = new_hadm_id;
+      }
 
+      if (cur_hadm_id != new_hadm_id) {
+        // move cursor to begining of line
+        in.seekg(pos);
+        break;
+      }
+      pos = in.tellg();
+
+      itemid = std::stoi(v[2], &sz);
+      int32_t fid = find(itemid, v[3]);
+      if (fid < 0) continue;
+
+      // TOBEREMOVE
+      // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+      // std::cerr << ", itemid=" << v[2] << ", value=" << v[3];
+      // std::cerr << ", fid=" << fid << std::endl;
+      nevents++;
+      features.push_back(fid);
+
+      if (nevents > MAX_EVENTS_SIZE) break;
+    }
+  }
+  return nevents;
+}
 }

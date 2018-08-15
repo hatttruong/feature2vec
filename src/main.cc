@@ -78,6 +78,8 @@ void test(const std::vector<std::string> args) {
   args_ = std::make_shared<Args>(a);
   std::shared_ptr<Dictionary> dict_;
   dict_ = std::make_shared<Dictionary>(args_);
+  std::string token = "Runs Vtach";
+  dict_->hash(token);
 }
 
 

@@ -39,7 +39,7 @@ protected:
 
   std::shared_ptr<Model> model_;
 
-  std::atomic<int64_t> tokenCount_;
+  std::atomic<int64_t> eventCount_;
   std::atomic<real> loss_;
 
   std::chrono::steady_clock::time_point start_;
@@ -78,8 +78,8 @@ public:
 
 
   void train(const Args);
-  // void cbow(Model&, real, const std::vector<int32_t>&);
-  // void skipgram(Model&, real, const std::vector<int32_t>&);
+  void cbow(Model&, real, const std::vector<int32_t>&);
+  void skipgram(Model&, real, const std::vector<int32_t>&);
   // void precomputeWordVectors(Matrix&);
   // void ngramVectors(std::string);
   // std::vector<int32_t> selectEmbeddings(int32_t) const;

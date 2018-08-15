@@ -144,6 +144,11 @@ def compute_min_max(values):
     min_value = int(min_value * multiply)
     max_value = int(max_value * multiply)
 
+    # remove values out of range(min_value, max_value)
+    values = [i for i in values if i >= min_value and i <= max_value]
+    values.append(min_value - step)
+    values.append(max_value + step)
+
     # generate segment values
     step = 1
     seg_values = [min_value - step]
@@ -177,6 +182,63 @@ STATIC_FEATURES = [('gender', 300001, False),
                    ('marital_status', 300002, False),
                    ('admission_age', 300003, True),
                    ('los_icu_h', 300004, True)]
+
+
+def redefine_features(file_path):
+    """
+
+    """
+    group_items = [
+        '212 220048  Heart Rhythm',
+        '161 224650  Ectopy Type 1',
+        '162 226479  Ectopy Type 2',
+        '159 224651  Ectopy Frequency 1',
+        '160 226480  Ectopy Frequency 2',
+        '211 220045  Heart Rate',
+        '814 220228  Hemoglobin',
+        '833 RBC',
+        '1542 220546 861 4200 1127 WBC',
+        '828 3789        Platelet']
+    item_ids = []
+    for group_item in group_items:
+        item_ids.append(int(group_item.split()[0]))
+    for _, itemid, _ in STATIC_FEATURES:
+        item_ids.append(itemid)
+
+    features = list()
+    data = load_dict_from_json(file_path)
+    for f in data:
+        itemid = f['itemid']
+        if itemid in item_ids:
+            if f['type'] == 0:
+                # numeric features
+                # remove values out of range(min_value, max_value)
+                min_value = f['min_value']
+                max_value = f['max_value']
+                data = list()
+                for v in f['data']:
+                    if v['value'] >= min_value and v['value'] <= max_value:
+                        data.append({'value': v['value'], 'id': -1})
+                data.append({'value': min_value - 1, 'id': -1})
+                data.append({'value': max_value + 1, 'id': -1})
+
+                # set id of segments is -1
+                segments = list()
+                for v in f['segments']:
+                    segments.append({'value': v['value'], 'id': -1})
+                f['data'] = data
+                f['segments'] = segments
+
+            else:
+                # category features
+                data = list()
+                for v in f['data']:
+                    data.append({'value': v['value'], 'id': -1})
+                f['data'] = data
+
+            features.append(f)
+
+    export_dict_to_json(features, file_path + '.new')
 
 
 def define_features(data_dir, output_dir):
