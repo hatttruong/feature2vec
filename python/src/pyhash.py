@@ -12,6 +12,10 @@ def hash(str):
     """
     h = 2166136261
     for i in range(len(str)):
-        h = h ^ ctypes.c_uint32(int8_t(str[i]))
+        int_i = int(ord(str[i]))
+        print('str=%s, int=%s' % (str[i], int_i))
+        h = h ^ int_i
+        print('h ^ = %s' % int(h))
         h = h * 16777619
+        print('h * = %s' % int(h))
     return h

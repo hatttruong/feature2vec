@@ -19,7 +19,7 @@ namespace feature2vec {
 Args::Args() {
   lr = 0.05;
   dim = 100;
-  ws = 5;
+  ws = 60;  // in minutes
   epoch = 5;
   minCount = 5;
   minCountLabel = 0;

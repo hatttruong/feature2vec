@@ -285,8 +285,9 @@ std::vector<int64_t> Dictionary::getCounts() const {
 
 // read line by line, each line is a chartevent
 // read until finish an admission (train data is sorted by hadm_id, minutes_ago)
+// return: number of events
 int32_t Dictionary::getEvents(std::istream & in,
-                              std::vector<int32_t>& features,
+                              std::vector<event_entry>& events,
                               std::minstd_rand & rng) const {
   std::uniform_real_distribution<> uniform(0, 1);
   std::string::size_type sz;   // alias of size_t
@@ -296,8 +297,10 @@ int32_t Dictionary::getEvents(std::istream & in,
   int32_t new_hadm_id;
   std::vector<std::string> v;
   int32_t itemid;
-  features.clear();
+  int32_t h;
+  int32_t minutes_ago;
   int32_t pos = 0;
+  events.clear();
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,itemid,value
     if (v.size() >= 4) {
@@ -313,22 +316,58 @@ int32_t Dictionary::getEvents(std::istream & in,
         in.seekg(pos);
         break;
       }
+      // record the position
       pos = in.tellg();
 
       itemid = std::stoi(v[2], &sz);
-      int32_t fid = find(itemid, v[3]);
-      if (fid < 0) continue;
+      h = find(itemid, v[3]);
+      if (h < 0) continue;
 
       // TOBEREMOVE
       // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
       // std::cerr << ", itemid=" << v[2] << ", value=" << v[3];
       // std::cerr << ", fid=" << fid << std::endl;
       nevents++;
-      features.push_back(fid);
+      minutes_ago = std::stoi(v[1], &sz);
+
+      // create event_entry object
+      event_entry ee;
+      ee.minutes_ago = minutes_ago;
+      ee.idx = feature2int_[h];
+      events.push_back(ee);
 
       if (nevents > MAX_EVENTS_SIZE) break;
     }
   }
   return nevents;
 }
+
+// get segments by index of feature value
+const std::vector<int32_t>& Dictionary::getSegments(int32_t i) const {
+  assert(i >= 0);
+  assert(i < nfeatures_);
+  return features_[i].segments;
+}
+
+entry Dictionary::getFeature(int32_t id) const {
+  assert(id >= 0);
+  assert(id < size_);
+  return features_[id];
+}
+
+void Dictionary::save(std::ostream& out) const {
+  out.write((char*) &size_, sizeof(int32_t));
+  out.write((char*) &nfeatures_, sizeof(int32_t));
+  out.write((char*) &nevents_, sizeof(int64_t));
+
+  for (int32_t i = 0; i < size_; i++) {
+    entry e = features_[i];
+    out.write((char*) & (e.id), sizeof(int32_t));
+    out.write((char*) & (e.itemid), sizeof(int32_t));
+    out.write(e.value.data(), e.value.size() * sizeof(char));
+    out.put(0);
+    out.write((char*) & (e.count), sizeof(int64_t));
+  }
+}
+
 }

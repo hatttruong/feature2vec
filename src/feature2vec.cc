@@ -27,6 +27,10 @@ constexpr int32_t FEATURE2VEC_FILEFORMAT_MAGIC_INT32 = 793712314;
 
 Feature2Vec::Feature2Vec() {}
 
+void Feature2Vec::addInputVector(Vector& vec, int32_t ind) const {
+  vec.addRow(*input_, ind);
+}
+
 void Feature2Vec::trainThread(int32_t threadId) {
   std::ifstream ifs(args_->input);
   utils::seek(ifs, threadId * utils::size(ifs) / args_->thread);
@@ -36,7 +40,7 @@ void Feature2Vec::trainThread(int32_t threadId) {
 
   const int64_t nevents = dict_->nevents();
   int64_t localEventCount = 0;
-  std::vector<int32_t> events; // list of events of one admission
+  std::vector<event_entry> events; // list of events of one admission
   while (eventCount_ < args_->epoch * nevents) {
     real progress = real(eventCount_) / (args_->epoch * nevents);
     real lr = args_->lr * (1.0 - progress);
@@ -45,7 +49,7 @@ void Feature2Vec::trainThread(int32_t threadId) {
       cbow(model, lr, events);
     } else if (args_->model == model_name::sg) {
       localEventCount += dict_->getEvents(ifs, events, model.rng);
-      // skipgram(model, lr, events);
+      skipgram(model, lr, events);
     }
     if (localEventCount > args_->lrUpdateRate) {
       eventCount_ += localEventCount;
@@ -140,34 +144,116 @@ void Feature2Vec::printInfo(real progress, real loss, std::ostream& log_stream) 
 
 
 void Feature2Vec::cbow(Model& model, real lr,
-                       const std::vector<int32_t>& events) {
+                       const std::vector<event_entry>& events) {
   std::vector<int32_t> bow;
   std::uniform_int_distribution<> uniform(1, args_->ws);
-  // for (int32_t w = 0; w < events.size(); w++) {
-  //   int32_t boundary = uniform(model.rng);
-  //   bow.clear();
-  //   for (int32_t c = -boundary; c <= boundary; c++) {
-  //     if (c != 0 && w + c >= 0 && w + c < events.size()) {
-  //       const std::vector<int32_t>& ngrams = dict_->getSubwords(events[w + c]);
-  //       bow.insert(bow.end(), ngrams.cbegin(), ngrams.cend());
-  //     }
-  //   }
-  //   model.update(bow, events[w], lr);
-  // }
+  int32_t boundary;
+  for (int32_t i = 0; i < events.size(); i++) {
+    boundary = uniform(model.rng);
+    bow.clear();
+    for (int32_t c = -boundary; c <= boundary; c++) {
+      if (c != 0 && i + c >= 0 && i + c < events.size()) {
+        const std::vector<int32_t>& nsegments = dict_->getSegments(events[i + c].idx);
+        bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+      }
+    }
+    model.update(bow, events[i].idx, lr);
+  }
 }
 
+
+// events: map<minutes_ago, vector<feature_idx>>
+// TODO: mutiply boundary with a constant because there are many events happen
+// at the same time
 void Feature2Vec::skipgram(Model& model, real lr,
-                           const std::vector<int32_t>& events) {
+                           const std::vector<event_entry>& events) {
   std::uniform_int_distribution<> uniform(1, args_->ws);
-  // for (int32_t w = 0; w < events.size(); w++) {
-  //   int32_t boundary = uniform(model.rng);
-  //   const std::vector<int32_t>& ngrams = dict_->getSubwords(events[w]);
-  //   for (int32_t c = -boundary; c <= boundary; c++) {
-  //     if (c != 0 && w + c >= 0 && w + c < events.size()) {
-  //       model.update(ngrams, events[w + c], lr);
-  //     }
-  //   }
-  // }
+  int32_t boundary;
+  for (int32_t i = 0; i < events.size(); i++) {
+
+    // std::cerr << "minutes_ago=" << events[i].minutes_ago << ", index="  << events[i].idx << "\n";
+    const std::vector<int32_t>& nsegments = dict_->getSegments(events[i].idx);
+
+    boundary  = uniform(model.rng);
+    for (int32_t c = - boundary; c <= + boundary; c++) {
+      if (c != 0 && i + c >= 0 && i + c < events.size()) {
+        // std::cerr << "update with ith="  << events[i + c].idx << "\n";
+        model.update(nsegments, events[i + c].idx, lr);
+      }
+    }
+  }
+}
+
+void Feature2Vec::getFeatureVector(Vector& vec, const int32_t idx) const {
+  const std::vector<int32_t>& nsegments = dict_->getSegments(idx);
+  vec.zero();
+  for (int i = 0; i < nsegments.size(); i ++) {
+    addInputVector(vec, nsegments[i]);
+  }
+  if (nsegments.size() > 0) {
+    vec.mul(1.0 / nsegments.size());
+  }
+}
+
+void Feature2Vec::saveModel() {
+  std::string fn(args_->output);
+  fn += ".bin";
+  saveModel(fn);
+}
+
+void Feature2Vec::saveModel(const std::string path) {
+  std::ofstream ofs(path, std::ofstream::binary);
+  if (!ofs.is_open()) {
+    throw std::invalid_argument(path + " cannot be opened for saving!");
+  }
+  signModel(ofs);
+  args_->save(ofs);
+  dict_->save(ofs);
+  input_->save(ofs);
+  output_->save(ofs);
+  ofs.close();
+}
+
+void Feature2Vec::signModel(std::ostream& out) {
+  const int32_t magic = FEATURE2VEC_FILEFORMAT_MAGIC_INT32;
+  const int32_t version = FEATURE2VEC_VERSION;
+  out.write((char*) & (magic), sizeof(int32_t));
+  out.write((char*) & (version), sizeof(int32_t));
+}
+
+void Feature2Vec::saveVectors() {
+  std::ofstream ofs(args_->output + ".vec");
+  if (!ofs.is_open()) {
+    throw std::invalid_argument(
+      args_->output + ".vec" + " cannot be opened for saving vectors!");
+  }
+  ofs << dict_->nfeatures() << " " << args_->dim << std::endl;
+  Vector vec(args_->dim);
+  for (int32_t i = 0; i < dict_->nfeatures(); i++) {
+    entry f = dict_->getFeature(i);
+    getFeatureVector(vec, i);
+    ofs << f.itemid << "," <<  f.value << "," << vec << std::endl;
+  }
+  ofs.close();
+}
+
+void Feature2Vec::saveOutput() {
+  std::ofstream ofs(args_->output + ".output");
+  if (!ofs.is_open()) {
+    throw std::invalid_argument(
+      args_->output + ".output" + " cannot be opened for saving vectors!");
+  }
+
+  int32_t n = dict_->nfeatures();
+  ofs << n << " " << args_->dim << std::endl;
+  Vector vec(args_->dim);
+  for (int32_t i = 0; i < n; i++) {
+    entry f = dict_->getFeature(i);
+    vec.zero();
+    vec.addRow(*output_, i);
+    ofs << f.itemid << "," <<  f.value << "," << vec << std::endl;
+  }
+  ofs.close();
 }
 
 }

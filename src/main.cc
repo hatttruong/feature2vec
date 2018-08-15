@@ -62,11 +62,11 @@ void train(const std::vector<std::string> args) {
   }
   ofs.close();
   feature2vec.train(a);
-  // feature2vec.saveModel();
-  // feature2vec.saveVectors();
-  // if (a.saveOutput) {
-  //   feature2vec.saveOutput();
-  // }
+  feature2vec.saveModel();
+  feature2vec.saveVectors();
+  if (a.saveOutput) {
+    feature2vec.saveOutput();
+  }
 }
 
 void test(const std::vector<std::string> args) {
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
   std::string command(args[1]);
   if (command == "test") {
     test(args);
-  } else if (command == "train") {
+  } else if (command == "skipgram" || command == "cbow") {
     train(args);
   } else {
     printUsage();

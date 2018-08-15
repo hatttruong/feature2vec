@@ -55,10 +55,10 @@ public:
 
   // int32_t getWordId(const std::string&) const;
   // int32_t getSubwordId(const std::string&) const;
-  // void getWordVector(Vector&, const std::string&) const;
+  void getFeatureVector(Vector&, const int32_t) const;
   // void getVector(Vector&, const std::string&) const;
   // void getSubwordVector(Vector&, const std::string&) const;
-  // void addInputVector(Vector&, int32_t) const;
+  void addInputVector(Vector&, int32_t) const;
   // inline void getInputVector(Vector& vec, int32_t ind) {
   //   vec.zero();
   //   addInputVector(vec, ind);
@@ -68,18 +68,18 @@ public:
   // std::shared_ptr<const Dictionary> getDictionary() const;
   // std::shared_ptr<const Matrix> getInputMatrix() const;
   // std::shared_ptr<const Matrix> getOutputMatrix() const;
-  // void saveVectors();
-  // void saveModel(const std::string);
-  // void saveOutput();
-  // void saveModel();
+  void saveVectors();
+  void saveModel(const std::string);
+  void saveOutput();
+  void saveModel();
   // void loadModel(std::istream&);
   // void loadModel(const std::string&);
   void printInfo(real, real, std::ostream&);
 
 
   void train(const Args);
-  void cbow(Model&, real, const std::vector<int32_t>&);
-  void skipgram(Model&, real, const std::vector<int32_t>&);
+  void cbow(Model&, real, const std::vector<event_entry>&);
+  void skipgram(Model&, real, const std::vector<event_entry>&);
   // void precomputeWordVectors(Matrix&);
   // void ngramVectors(std::string);
   // std::vector<int32_t> selectEmbeddings(int32_t) const;
