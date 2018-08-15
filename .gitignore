@@ -136,6 +136,10 @@ ENV/
 *.bat
 *.sh
 
+output/
 data/
 notebooks/
 python/src/test/test_save_dictionary_object.json
+
+# model
+*.bin

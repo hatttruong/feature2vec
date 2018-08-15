@@ -2,6 +2,7 @@
 """
 from unittest import TextTestRunner, TestSuite, TestLoader
 from test_preprocess import *
+from test_hash import *
 import logging
 
 logging.basicConfig(
@@ -19,6 +20,7 @@ def suite():
     loader = TestLoader()
     suite = TestSuite()
     suite.addTest(loader.loadTestsFromTestCase(TestPreprocessMethods))
+    suite.addTest(loader.loadTestsFromTestCase(TestHashMethods))
     return suite
 
 

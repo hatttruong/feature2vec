@@ -22,6 +22,8 @@ WITH admission_detail AS (
         , ie.intime, ie.outtime
         -- length of stay in ICU with unit = factional days
         , ROUND( (CAST(EXTRACT(epoch FROM ie.outtime - ie.intime)/(60*60*24) AS numeric)), 4) AS los_icu
+        -- length of stay in ICU with unit = factional hours
+        , ROUND( (CAST(EXTRACT(epoch FROM ie.outtime - ie.intime)/(60*60) AS numeric)), 4) AS los_icu_h
         , DENSE_RANK() OVER (PARTITION BY ie.hadm_id ORDER BY ie.intime) AS icustay_seq
 
         -- first ICU stay *for the current hospitalization*

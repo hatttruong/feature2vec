@@ -70,8 +70,9 @@ Following [this link]( https://mimic.physionet.org/gettingstarted/access/) to ge
     # if make is not installed
     $ sudo apt install make
 
-    $ sudo make mimic-download physionetuser=ha.truong2016@ict.jvn.edu.vn datadir="/media/tuanta/USB/mimic-data/
-    # datadir="/mnt/data/mimic-data" (on JVN server). 
+    $ sudo make mimic-download physionetuser=ha.truong2016@ict.jvn.edu.vn datadir="/home/ubuntu/mimic/mimic-data"
+    # datadir="/home/ubuntu/mimic/mimic-data" (on JVN server)
+    # datadir="/media/tuanta/USB/mimic-data/" (TP7 server)
 
     ```
 
