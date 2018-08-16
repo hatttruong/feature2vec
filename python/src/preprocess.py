@@ -48,11 +48,10 @@ Preprocessing including following steps:
             Attach chartevent to each
 
 Attributes:
+    GROUP_ITEMS (TYPE): Description
+    ITEM_IDS (str): Description
     logger (TYPE): Description
     STATIC_FEATURES (TYPE): Description
-
-Deleted Attributes:
-    features (TYPE): Description
 """
 import os
 import json
@@ -63,11 +62,35 @@ import decimal
 import collections
 import pandas as pd
 from datetime import datetime
+from multiprocessing import Pool
+import multiprocessing
 
 from src.pyhash import *
 from src.db_util import *
 
 logger = logging.getLogger(__name__)
+
+
+STATIC_FEATURES = [('gender', 300001, False),
+                   ('marital_status', 300002, False),
+                   ('admission_age', 300003, True),
+                   ('los_icu_h', 300004, True)]
+
+ITEM_IDS = '212 220048 161 224650 162 226479 159 224651 160 226480 '
+ITEM_IDS += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
+ITEM_IDS = ITEM_IDS.split()
+
+GROUP_ITEMS = [
+    '212 220048  Heart Rhythm',
+    '161 224650  Ectopy Type 1',
+    '162 226479  Ectopy Type 2',
+    '159 224651  Ectopy Frequency 1',
+    '160 226480  Ectopy Frequency 2',
+    '211 220045  Heart Rate',
+    '814 220228  Hemoglobin',
+    '833 RBC',
+    '1542 220546 861 4200 1127 WBC',
+    '828 3789        Platelet']
 
 
 def export_dict_to_json(dict_data, file_path):
@@ -95,7 +118,7 @@ def load_dict_from_json(file_path):
     Returns:
         TYPE: Description
     """
-    logger.info('load_dict_to_json: %s', locals())
+    logger.debug('load_dict_to_json: %s', locals())
     data = {}
     with open(file_path, 'r') as file:
         text = file.read()
@@ -103,7 +126,7 @@ def load_dict_from_json(file_path):
         data = temp
         logger.debug('data: %s', data)
 
-    logger.info('number of keys: %s', len(data))
+    logger.debug('number of keys: %s', len(data))
     return data
 
 
@@ -182,12 +205,6 @@ def check_is_number(s):
         return False
 
 
-STATIC_FEATURES = [('gender', 300001, False),
-                   ('marital_status', 300002, False),
-                   ('admission_age', 300003, True),
-                   ('los_icu_h', 300004, True)]
-
-
 def define_features(data_dir, output_dir):
     """
     Create new index for each segments of features
@@ -199,18 +216,7 @@ def define_features(data_dir, output_dir):
     """
     features = list()
     count_features = 0
-    group_items = [
-        '212 220048  Heart Rhythm',
-        '161 224650  Ectopy Type 1',
-        '162 226479  Ectopy Type 2',
-        '159 224651  Ectopy Frequency 1',
-        '160 226480  Ectopy Frequency 2',
-        '211 220045  Heart Rate',
-        '814 220228  Hemoglobin',
-        '833 RBC',
-        '1542 220546 861 4200 1127 WBC',
-        '828 3789        Platelet']
-    for group_item in group_items:
+    for group_item in GROUP_ITEMS:
         item_id = int(group_item.split()[0])
         feature_obj = dict()
         feature_obj['itemid'] = item_id
@@ -348,13 +354,13 @@ def load_feature_definition(file_path):
     return features
 
 
-def update_value(df, features_def, group_itemids):
+def update_value(df, features_def, item2group):
     """Summary
 
     Args:
-        df (TYPE): Description
-        features_def (TYPE): Description
-        group_itemids (TYPE): Description
+        df (dataframe): Description
+        features_def (dict): Description
+        item2group (dict): Description
 
     Returns:
         TYPE: Description
@@ -362,7 +368,7 @@ def update_value(df, features_def, group_itemids):
     for index, row in df.iterrows():
         itemid = int(row['itemid'])
         value = row['value']
-        g_id = group_itemids[itemid]
+        g_id = item2group[itemid]
         if g_id in features_def.keys():
             if features_def[g_id]['type'] == 0:
                 # try to round it
@@ -378,124 +384,163 @@ def update_value(df, features_def, group_itemids):
     return df
 
 
-def create_group_itemid():
-    group_itemids = dict()
-    group_items = [
-        '212 220048  Heart Rhythm',
-        '161 224650  Ectopy Type 1',
-        '162 226479  Ectopy Type 2',
-        '159 224651  Ectopy Frequency 1',
-        '160 226480  Ectopy Frequency 2',
-        '211 220045  Heart Rate',
-        '814 220228  Hemoglobin',
-        '833 RBC',
-        '1542 220546 861 4200 1127 WBC',
-        '828 3789        Platelet']
-    for group_item in group_items:
+def create_item2group():
+    """Summary
+
+    Returns:
+        dict: key = itemid, value = the first item id of each group
+    """
+    item2group = dict()
+    for group_item in GROUP_ITEMS:
         g_item_id = int(group_item.split()[0])
         for i in group_item.split():
             if check_is_number(i):
-                group_itemids[int(i)] = g_item_id
-                logger.info('key=%s, value=%s', i, g_item_id)
+                item2group[int(i)] = g_item_id
+                logger.debug('key=%s, value=%s', i, g_item_id)
             else:
                 break
 
-    return group_itemids
+    return item2group
 
 
-def create_train_dataset(output_dir):
+def create_train_dataset():
+    """
+    Use multiprocessing to get data from postgres
+    """
+    df_admissions = get_admissions()
+
+    m = multiprocessing.Manager()
+    q_log = m.Queue()
+
+    list_args = []
+    for index, row in df_admissions.iterrows():
+        admission_id = row['hadm_id']
+        gender = None if pd.isnull(row['gender']) else row['gender'].strip()
+        admission_age = None if pd.isnull(
+            row['admission_age']) else math.floor(row['admission_age'])
+        marital_status = None if pd.isnull(row['marital_status']) else row[
+            'marital_status'].strip()
+        los_icu_h = None if pd.isnull(
+            row['los_icu_h']) else math.floor(row['los_icu_h'])
+        list_args.append((admission_id,
+                          gender,
+                          admission_age,
+                          marital_status,
+                          los_icu_h,
+                          q_log))
+
+    # start 6 worker processes
+    with Pool(processes=6) as pool:
+        start_pool = datetime.now()
+        logger.info('START POOL at %s', start_pool)
+        r = pool.starmap(create_admission_train, list_args)
+        r.wait()
+
+        logger.info('DONE %s/%s admissions', q_log.qsize(), len(list_args))
+        total_duration = (datetime.now() - start_pool).total_seconds()
+        logger.info('TOTAL DURATION: %s seconds', total_duration)
+        logger.info('seconds/admissions: seconds',
+                    total_duration * 1.0 / q_log.qsize())
+
+        query_times = list()
+        update_times = list()
+        while not q_log.empty():
+            _, query_time, update_time = q.get()
+        logger.info('mean query times: %s', np.mean(query_times))
+        logger.info('mean update times: %s', np.mean(update_times))
+
+        # Check there are no outstanding tasks
+        assert not pool._cache, 'cache = %r' % pool._cache
+
+
+def create_admission_train(admission_id, gender, admission_age, marital_status,
+                           los_icu_h, q_log):
     """Summary
 
     Args:
-        output_dir (TYPE): Description
+        admission_id (TYPE): Description
+        gender (TYPE): Description
+        admission_age (TYPE): Description
+        marital_status (TYPE): Description
+        los_icu_h (TYPE): Description
+        q_log (TYPE): Description
+
+    Returns:
+        TYPE: Description
     """
-    features_def = load_feature_definition(
-        os.path.join(output_dir, 'feature_definition.json'))
-    logger.info(features_def[300001]['data'])
+    logger.debug('start exporting ID=%s', admission_id)
+    export_dir = '/media/tuanta/USB/mimic-data/train'
 
-    group_itemids = create_group_itemid()
+    features_def_path = '../output/feature_definition.json'
+    features_def = load_feature_definition(features_def_path)
+    item2group = create_item2group()
 
-    df_admissions = get_admissions()
-    itemids = '212 220048 161 224650 162 226479 159 224651 160 226480 '
-    itemids += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
-    itemids = itemids.split()
-    df = None  # contains 4 columns: hadm_id, minutes_ago, itemid, value
-    query_times = list()
-    update_times = list()
-    for index, row in df_admissions.iterrows():
-        admission_id = row['hadm_id']
-        logger.info('admission_id = %s', admission_id)
+    start = datetime.now()
+    df_events = get_events_by_admission(admission_id, ITEM_IDS)
+    d = (datetime.now() - start).total_seconds()
+    query_time = d
+    logger.debug('Query time: %s seconds', d)
 
-        start = datetime.now()
-        df_events = get_events_by_admission(admission_id, itemids)
-        d = (datetime.now() - start).total_seconds()
-        query_times.append(d)
-        logger.info('Query time: %s seconds', d)
+    start = datetime.now()
+    df_events = update_value(df_events, features_def, item2group)
+    d = (datetime.now() - start).total_seconds()
+    update_time = d
+    logger.debug('Update time: %s seconds', d)
 
-        start = datetime.now()
-        df_events = update_value(df_events, features_def, group_itemids)
-        d = (datetime.now() - start).total_seconds()
-        update_times.append(d)
-        logger.info('Update time: %s seconds', d)
+    # add static features
+    static_feature = {
+        'gender': gender,
+        'admission_age': admission_age,
+        'marital_status': marital_status,
+        'los_icu_h': los_icu_h,
+    }
 
-        # add static features
-        static_feature = {
-            'gender': row['gender'].strip(),
-            'admission_age': math.floor(row['admission_age']),
-            'marital_status': row['marital_status'].strip(),
-            'los_icu_h': math.floor(row['los_icu_h']),
-            'admission_type': row['admission_type'].strip()
-        }
+    static_feature_dict = list()
+    for name, itemid, is_number in STATIC_FEATURES:
+        if static_feature[name] is None:
+            continue
 
-        static_feature_dict = list()
-        for name, itemid, is_number in STATIC_FEATURES:
-            static_feature_dict.append({
-                'hadm_id': row['hadm_id'],
-                'minutes_ago': -1,
-                # 'charttime': None,
-                'itemid': itemid,
-                'value': static_feature[name],
-                # 'valuenum': static_feature[f]
-            })
-        temp_df = pd.DataFrame(static_feature_dict)
-        logger.info('temp_df.shape = %s', temp_df.shape)
+        static_feature_dict.append({
+            'hadm_id': admission_id,
+            'minutes_ago': -1,
+            'itemid': itemid,
+            'value': static_feature[name]
+        })
+    temp_df = pd.DataFrame(static_feature_dict)
+    logger.debug('temp_df.shape = %s', temp_df.shape)
 
-        df_events = df_events.append(temp_df, ignore_index=True)
-        logger.info(
-            'number of events (chartevents & static features): %s',
-            df_events.shape[0])
+    df_events = df_events.append(temp_df, ignore_index=True)
+    logger.debug(
+        'number of events (chartevents & static features): %s',
+        df_events.shape[0])
 
-        if df is None:
-            df = df_events.copy()
-        else:
-            df.append(df_events, ignore_index=True)
+    # export separately
+    df_events.sort_values(['hadm_id', 'minutes_ago'], axis=0,
+                          ascending=[True, True], inplace=True)
+    df_events.to_csv(
+        os.path.join(export_dir, 'data_train_%s.csv' % admission_id),
+        index=False,
+        columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
+    logger.debug('done exporting ID=%s', admission_id)
 
-        logger.info('DONE %s/%s admissions' %
-                    (index + 1, df_admissions.shape[0]))
-        if index >= 10:
-            break
-
-    print('mean query times:', np.mean(query_times))
-    print('mean update times:', np.mean(update_times))
-
-    df.sort_values(['hadm_id', 'minutes_ago'], axis=0,
-                   ascending=[True, True], inplace=True)
-    df.to_csv(os.path.join(output_dir, 'data_train.csv'), index=False,
-              columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
+    q_log.put((admission_id, query_time, update_time))
+    size = q_log.qsize()
+    if size % 5 == 0:
+        logger.info('*********DONE %s ADMISSIONS*********', size)
+    return admission_id
 
 
 def create_raw_train_dataset(output_dir):
-    """Summary
+    """
+    select raw data from chartevents table without calculate minutes ago,...
 
     Args:
         output_dir (TYPE): Description
     """
-    itemids = '212 220048 161 224650 162 226479 159 224651 160 226480 '
-    itemids += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
-    itemids = itemids.split()
+
     query = ' SELECT hadm_id, charttime, itemid, value, valuenum \
         FROM chartevents \
-        WHERE itemid in (%s) ' % ','.join(itemids)
+        WHERE itemid in (%s) ' % ','.join(ITEM_IDS)
 
     logger.info('query="%s"', query)
     start = datetime.now()

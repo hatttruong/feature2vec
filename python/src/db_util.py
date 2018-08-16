@@ -73,7 +73,7 @@ def get_events_by_admission(admission_id, itemids=None):
 
     logger.debug('query=\n"%s"\n', query)
     df = execute_query_to_df(query)
-    logger.info('get_events_by_admission finishes, result=%s', df.shape[0])
+    logger.debug('get_events_by_admission finishes, result=%s', df.shape[0])
     return df
 
 
@@ -89,6 +89,6 @@ def get_admissions():
             admission_age, los_icu_h \
         FROM v_first_admission"
     df = execute_query_to_df(query)
-    logger.info('Number of admissions:%s', df.shape[0])
+    logger.info('Number of admissions: %s', df.shape[0])
 
     return df
