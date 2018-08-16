@@ -48,11 +48,13 @@ Preprocessing including following steps:
             Attach chartevent to each
 
 Attributes:
-    features (TYPE): Description
     logger (TYPE): Description
+    STATIC_FEATURES (TYPE): Description
+
+Deleted Attributes:
+    features (TYPE): Description
 """
 import os
-import sys
 import json
 import logging
 import numpy as np
@@ -60,6 +62,7 @@ import math
 import decimal
 import collections
 import pandas as pd
+from datetime import datetime
 
 from src.pyhash import *
 from src.db_util import *
@@ -144,13 +147,14 @@ def compute_min_max(values):
     min_value = int(min_value * multiply)
     max_value = int(max_value * multiply)
 
+    step = 1
+
     # remove values out of range(min_value, max_value)
     values = [i for i in values if i >= min_value and i <= max_value]
     values.append(min_value - step)
     values.append(max_value + step)
 
     # generate segment values
-    step = 1
     seg_values = [min_value - step]
     v = min_value
     while v <= max_value:
@@ -182,63 +186,6 @@ STATIC_FEATURES = [('gender', 300001, False),
                    ('marital_status', 300002, False),
                    ('admission_age', 300003, True),
                    ('los_icu_h', 300004, True)]
-
-
-def redefine_features(file_path):
-    """
-
-    """
-    group_items = [
-        '212 220048  Heart Rhythm',
-        '161 224650  Ectopy Type 1',
-        '162 226479  Ectopy Type 2',
-        '159 224651  Ectopy Frequency 1',
-        '160 226480  Ectopy Frequency 2',
-        '211 220045  Heart Rate',
-        '814 220228  Hemoglobin',
-        '833 RBC',
-        '1542 220546 861 4200 1127 WBC',
-        '828 3789        Platelet']
-    item_ids = []
-    for group_item in group_items:
-        item_ids.append(int(group_item.split()[0]))
-    for _, itemid, _ in STATIC_FEATURES:
-        item_ids.append(itemid)
-
-    features = list()
-    data = load_dict_from_json(file_path)
-    for f in data:
-        itemid = f['itemid']
-        if itemid in item_ids:
-            if f['type'] == 0:
-                # numeric features
-                # remove values out of range(min_value, max_value)
-                min_value = f['min_value']
-                max_value = f['max_value']
-                data = list()
-                for v in f['data']:
-                    if v['value'] >= min_value and v['value'] <= max_value:
-                        data.append({'value': v['value'], 'id': -1})
-                data.append({'value': min_value - 1, 'id': -1})
-                data.append({'value': max_value + 1, 'id': -1})
-
-                # set id of segments is -1
-                segments = list()
-                for v in f['segments']:
-                    segments.append({'value': v['value'], 'id': -1})
-                f['data'] = data
-                f['segments'] = segments
-
-            else:
-                # category features
-                data = list()
-                for v in f['data']:
-                    data.append({'value': v['value'], 'id': -1})
-                f['data'] = data
-
-            features.append(f)
-
-    export_dict_to_json(features, file_path + '.new')
 
 
 def define_features(data_dir, output_dir):
@@ -288,8 +235,7 @@ def define_features(data_dir, output_dir):
                 'min_value=%s, max_value=%s, multiply=%s, len(seg_values)=%s',
                 min_value, max_value, multiply, len(seg_values))
             for s in seg_values:
-                feature_obj['segments'].append(
-                    {'value': s, 'id': count_features})
+                feature_obj['segments'].append({'value': s})
                 count_features += 1
         else:
             # handle category feature
@@ -310,11 +256,11 @@ def define_features(data_dir, output_dir):
         feature_obj['multiply'] = multiply
         feature_obj['data'] = list()
         for v in unique_values:
-            feature_obj['data'].append(
-                {'value': v, 'id': count_features})
+            feature_obj['data'].append({'value': v})
             count_features += 1
 
-        logger.info('features=%s, count=%s', first_itemid, count_features)
+        features.append(feature_obj)
+        logger.info('features=%s, count=%s', item_id, count_features)
 
     # define static features: v_first_admission.gender,
     #   v_first_admission.marital_status
@@ -344,8 +290,7 @@ def define_features(data_dir, output_dir):
                 'min_value=%s, max_value=%s, len(seg_values)=%s',
                 min_value, max_value, len(seg_values))
             for s in seg_values:
-                feature_obj['segments'].append(
-                    {'value': s, 'id': count_features})
+                feature_obj['segments'].append({'value': s})
                 count_features += 1
         else:
             min_value = -1
@@ -359,7 +304,7 @@ def define_features(data_dir, output_dir):
         unique_values = set(values)
         logger.info('number of values: %s', len(unique_values))
         for v in unique_values:
-            feature_obj['data'].append({'value': v, 'id': count_features})
+            feature_obj['data'].append({'value': v})
             count_features += 1
 
         features.append(feature_obj)
@@ -375,13 +320,12 @@ def load_feature_definition(file_path):
     """Summary
 
     Args:
-        itemid (TYPE): Description
-        value (TYPE): Description
+        file_path (TYPE): Description
 
     Returns:
         TYPE: Description
 
-    Raises:
+    No Longer Raises:
         e: Description
     """
     features = dict()
@@ -395,21 +339,22 @@ def load_feature_definition(file_path):
         features[itemid]['multiply'] = f['multiply']
         features[itemid]['data'] = dict()
         for v in f['data']:
-            features[itemid]['data'][v['value']] = v['id']
+            features[itemid]['data'][v['value']] = -1  # v['id']
 
         features[itemid]['segments'] = dict()
         for v in f['segments']:
-            features[itemid]['segments'][v['value']] = v['id']
+            features[itemid]['segments'][v['value']] = -1  # v['id']
 
     return features
 
 
-def update_value(df, features_def):
+def update_value(df, features_def, group_itemids):
     """Summary
 
     Args:
         df (TYPE): Description
         features_def (TYPE): Description
+        group_itemids (TYPE): Description
 
     Returns:
         TYPE: Description
@@ -417,12 +362,13 @@ def update_value(df, features_def):
     for index, row in df.iterrows():
         itemid = int(row['itemid'])
         value = row['value']
-        if itemid in features_def.keys():
-            if features_def[itemid]['type'] == 0:
+        g_id = group_itemids[itemid]
+        if g_id in features_def.keys():
+            if features_def[g_id]['type'] == 0:
                 # try to round it
-                value = int(float(value) * features_def[itemid]['multiply'])
+                value = int(float(value) * features_def[g_id]['multiply'])
             else:
-                value = hash(str(value).strip())
+                value = str(value).strip()
 
             df.iloc[index, df.columns.get_loc('value')] = value
         else:
@@ -430,6 +376,31 @@ def update_value(df, features_def):
                 'error cannot find(itemid=%s)', itemid)
 
     return df
+
+
+def create_group_itemid():
+    group_itemids = dict()
+    group_items = [
+        '212 220048  Heart Rhythm',
+        '161 224650  Ectopy Type 1',
+        '162 226479  Ectopy Type 2',
+        '159 224651  Ectopy Frequency 1',
+        '160 226480  Ectopy Frequency 2',
+        '211 220045  Heart Rate',
+        '814 220228  Hemoglobin',
+        '833 RBC',
+        '1542 220546 861 4200 1127 WBC',
+        '828 3789        Platelet']
+    for group_item in group_items:
+        g_item_id = int(group_item.split()[0])
+        for i in group_item.split():
+            if check_is_number(i):
+                group_itemids[int(i)] = g_item_id
+                logger.info('key=%s, value=%s', i, g_item_id)
+            else:
+                break
+
+    return group_itemids
 
 
 def create_train_dataset(output_dir):
@@ -440,28 +411,40 @@ def create_train_dataset(output_dir):
     """
     features_def = load_feature_definition(
         os.path.join(output_dir, 'feature_definition.json'))
-    logger.info(features_def[212]['data']['ST (Sinus Tachycardia)'])
     logger.info(features_def[300001]['data'])
+
+    group_itemids = create_group_itemid()
 
     df_admissions = get_admissions()
     itemids = '212 220048 161 224650 162 226479 159 224651 160 226480 '
     itemids += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
     itemids = itemids.split()
     df = None  # contains 4 columns: hadm_id, minutes_ago, itemid, value
+    query_times = list()
+    update_times = list()
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
         logger.info('admission_id = %s', admission_id)
 
+        start = datetime.now()
         df_events = get_events_by_admission(admission_id, itemids)
-        df_events = update_value(df_events, features_def)
+        d = (datetime.now() - start).total_seconds()
+        query_times.append(d)
+        logger.info('Query time: %s seconds', d)
+
+        start = datetime.now()
+        df_events = update_value(df_events, features_def, group_itemids)
+        d = (datetime.now() - start).total_seconds()
+        update_times.append(d)
+        logger.info('Update time: %s seconds', d)
 
         # add static features
         static_feature = {
-            'gender': hash(row['gender'].strip()),
+            'gender': row['gender'].strip(),
             'admission_age': math.floor(row['admission_age']),
-            'marital_status': hash(row['marital_status'].strip()),
+            'marital_status': row['marital_status'].strip(),
             'los_icu_h': math.floor(row['los_icu_h']),
-            'admission_type': hash(row['admission_type'].strip())
+            'admission_type': row['admission_type'].strip()
         }
 
         static_feature_dict = list()
@@ -489,10 +472,37 @@ def create_train_dataset(output_dir):
 
         logger.info('DONE %s/%s admissions' %
                     (index + 1, df_admissions.shape[0]))
-        if index >= 5:
+        if index >= 10:
             break
+
+    print('mean query times:', np.mean(query_times))
+    print('mean update times:', np.mean(update_times))
 
     df.sort_values(['hadm_id', 'minutes_ago'], axis=0,
                    ascending=[True, True], inplace=True)
     df.to_csv(os.path.join(output_dir, 'data_train.csv'), index=False,
               columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
+
+
+def create_raw_train_dataset(output_dir):
+    """Summary
+
+    Args:
+        output_dir (TYPE): Description
+    """
+    itemids = '212 220048 161 224650 162 226479 159 224651 160 226480 '
+    itemids += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
+    itemids = itemids.split()
+    query = ' SELECT hadm_id, charttime, itemid, value, valuenum \
+        FROM chartevents \
+        WHERE itemid in (%s) ' % ','.join(itemids)
+
+    logger.info('query="%s"', query)
+    start = datetime.now()
+    df = execute_query_to_df(query)
+    d = (datetime.now() - start).total_seconds()
+    logger.info('Query time: %s seconds', d)
+
+    logger.info('query finishes')
+
+    df.to_csv(os.path.join(output_dir, 'raw_train_data.csv'), index=False)

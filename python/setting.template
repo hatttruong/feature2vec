@@ -1,0 +1,12 @@
+[SectionServer]
+IPAddress =
+Port =
+SshUsername =
+SshPassword =
+UseSSH = 0
+
+[SectionDatabase]
+DatabaseName = mimic
+DatabaseUsername = postgres
+DatabasePassword =
+SearchPath = mimiciii

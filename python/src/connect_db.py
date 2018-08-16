@@ -40,25 +40,45 @@ def execute_query(query):
     """
     try:
 
-        with SSHTunnelForwarder(
-                (Configer.ip_address, Configer.port),
-                ssh_username=Configer.ssh_username,
-                ssh_password=Configer.ssh_password,
-                remote_bind_address=('localhost', 5432)) as server:
+        if Configer.use_ssh:
+            with SSHTunnelForwarder(
+                    (Configer.ip_address, Configer.port),
+                    ssh_username=Configer.ssh_username,
+                    ssh_password=Configer.ssh_password,
+                    remote_bind_address=('localhost', 5432)) as server:
 
-            server.start()
-            logger.debug('server connected')
-            logger.debug('server.local_bind_port: %s', server.local_bind_port)
+                server.start()
+                logger.debug('server connected')
+                logger.debug('server.local_bind_port: %s',
+                             server.local_bind_port)
 
+                params = {
+                    'database': Configer.db_name,
+                    'user': Configer.db_username,
+                    'password': Configer.db_password,
+                    'host': 'localhost',
+                    'port': server.local_bind_port
+                }
+
+                conn = psycopg2.connect(**params)
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                logger.debug('database %s connected', params)
+
+                cursor.execute('set search_path to %s' % Configer.search_path)
+                logger.debug('set search_path to %s' % Configer.search_path)
+
+                return fetch(cursor, query)
+        else:
             params = {
                 'database': Configer.db_name,
                 'user': Configer.db_username,
                 'password': Configer.db_password,
-                'host': 'localhost',
-                'port': server.local_bind_port
+                'host': 'localhost'
             }
-
+            # use our connection values to establish a connection
             conn = psycopg2.connect(**params)
+
+            # create a psycopg2 cursor that can execute queries
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             logger.debug('database %s connected', params)
 

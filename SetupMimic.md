@@ -126,8 +126,12 @@ Following [this link]( https://mimic.physionet.org/gettingstarted/access/) to ge
             *  [create-lvm-storage-in-linux] (https://www.tecmint.com/create-lvm-storage-in-linux/). Use ```fdisk -c -u /dev/sda/```
             
     ```
-
+    # JVN Server
     $ psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f /home/ubuntu/mimic-code/buildmimic/postgres/postgres_load_data_gz.sql -v mimic_data_dir=/mnt/data/mimic-data/
+    # enter mimicuser password '123456'
+
+    # TP7 Server
+    $ psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f /home/hattt/mimic-code/buildmimic/postgres/postgres_load_data_gz.sql -v mimic_data_dir=/media/tuanta/USB/mimic-data/
     # enter mimicuser password '123456'
 
     ```
