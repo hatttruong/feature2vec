@@ -19,6 +19,6 @@ print(Configer.db_name, Configer.db_username, Configer.db_password)
 
 
 # HARD CODE feature definition path and output directory
-create_train_dataset()
+create_train_dataset(processes=6)
 # create_raw_train_dataset('../output')
 # define_features('../data/raw', '../output')

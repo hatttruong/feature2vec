@@ -51,9 +51,12 @@ Attributes:
     GROUP_ITEMS (TYPE): Description
     ITEM_IDS (str): Description
     logger (TYPE): Description
+    onlyfiles (TYPE): Description
     STATIC_FEATURES (TYPE): Description
 """
 import os
+from os import listdir
+from os.path import isfile, join, basename
 import json
 import logging
 import numpy as np
@@ -366,6 +369,9 @@ def update_value(df, features_def, item2group):
         TYPE: Description
     """
     for index, row in df.iterrows():
+        if pd.isnull(row['value']):
+            continue
+
         itemid = int(row['itemid'])
         value = row['value']
         g_id = item2group[itemid]
@@ -403,11 +409,21 @@ def create_item2group():
     return item2group
 
 
-def create_train_dataset():
+def create_train_dataset(processes=6):
     """
     Use multiprocessing to get data from postgres
     """
+
     df_admissions = get_admissions()
+    logger.info('Total admissions: %s', df_admissions.shape[0])
+
+    export_dir = '/media/tuanta/USB/mimic-data/train'
+    # split by . to get name without extension
+    # split by _ to get the last part from name (admission id)
+    exported_admissions = [int(basename(f).split('.')[0].split('_')[-1])
+                           for f in listdir(export_dir)
+                           if isfile(join(export_dir, f))]
+    logger.info('DONE %s admissions', len(exported_admissions))
 
     m = multiprocessing.Manager()
     q_log = m.Queue()
@@ -415,6 +431,9 @@ def create_train_dataset():
     list_args = []
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
+        if admission_id in exported_admissions:
+            continue
+
         gender = None if pd.isnull(row['gender']) else row['gender'].strip()
         admission_age = None if pd.isnull(
             row['admission_age']) else math.floor(row['admission_age'])
@@ -428,9 +447,10 @@ def create_train_dataset():
                           marital_status,
                           los_icu_h,
                           q_log))
+    logger.info('Remaining: %s admissions', len(list_args))
 
-    # start 6 worker processes
-    with Pool(processes=6) as pool:
+    # start x worker processes
+    with Pool(processes=processes) as pool:
         start_pool = datetime.now()
         logger.info('START POOL at %s', start_pool)
         r = pool.starmap(create_admission_train, list_args)
