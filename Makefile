@@ -9,7 +9,7 @@
 
 CXX = g++
 CXXFLAGS = -pthread -std=c++11 -march=native -ljsoncpp
-OBJS =  jsoncpp.o args.o dictionary.o matrix.o vector.o model.o utils.o feature2vec.o
+OBJS =  jsoncpp.o args.o dictionary.o matrix.o vector.o model.o utils.o feature2vec.o test.o
 INCLUDES = -I.
 
 opt: CXXFLAGS += -O3 -funroll-loops
@@ -38,6 +38,9 @@ model.o: src/model.cc src/model.h src/args.h
 
 utils.o: src/utils.cc src/utils.h
 	$(CXX) $(CXXFLAGS) -c src/utils.cc
+
+test.o: src/test.cc src/test.h src/dictionary.h src/args.h
+	$(CXX) $(CXXFLAGS) -c src/test.cc
 
 feature2vec.o: src/feature2vec.cc src/*.h
 	$(CXX) $(CXXFLAGS) -c src/feature2vec.cc

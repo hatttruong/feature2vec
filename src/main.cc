@@ -1,10 +1,6 @@
 /**
- * Copyright (c) 2016-present, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code, based on FastText source code, is modified to fit my
+ * application
  */
 
 #include <iostream>
@@ -14,6 +10,7 @@
 #include "feature2vec.h"
 #include "args.h"
 #include "dictionary.h"
+#include "test.h"
 
 using namespace feature2vec;
 
@@ -70,16 +67,8 @@ void train(const std::vector<std::string> args) {
 }
 
 void test(const std::vector<std::string> args) {
-  Args a = Args();
-  a.parseArgs(args);
-
-  // Test dictionary
-  std::shared_ptr<Args> args_;
-  args_ = std::make_shared<Args>(a);
-  std::shared_ptr<Dictionary> dict_;
-  dict_ = std::make_shared<Dictionary>(args_);
-  std::string token = "Runs Vtach";
-  dict_->hash(token);
+  UnitTest ut = UnitTest();
+  ut.run();
 }
 
 
