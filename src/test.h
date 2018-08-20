@@ -5,6 +5,7 @@
 
 #include <time.h>
 
+#include <vector>
 #include <atomic>
 #include <memory>
 #include <set>
@@ -20,17 +21,43 @@
 
 namespace feature2vec {
 
+struct test_result {
+  std::string testcase;
+  bool passed;
+  std::string expected;
+  std::string actual;
+};
+
+
 class UnitTest {
 
 protected:
   std::shared_ptr<Args> args_;
+  std::vector<test_result> results_;
 
-  void prepareTest() const;
-  void testInitDictionary() const;
+  void prepareTest();
+  void addResult(const std::string&, bool, const std::string&,
+    const std::string&);
+  void printSummary();
+
+  // test cases of dictionary class
+  void testInitDictionary();
+  void testHash();
+  void testFindFeature();
+  void testReadFromFile();
+  void testReadFeature();
+  void testGetFeature();
+  void testGetEvents();
+  void testComputeSegments();
+  void testGetSegments();
+  void testGetCounts();
+
+  // test cases of feature2vec class
+  void testGetFeatureVector();
 
 public:
   UnitTest();
-  void run() const;
+  void run();
 };
 
 }

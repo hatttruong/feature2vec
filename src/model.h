@@ -31,20 +31,20 @@ struct Node {
 
 class Model {
 protected:
-  std::shared_ptr<Matrix> wi_;
-  std::shared_ptr<Matrix> wo_;
+  std::shared_ptr<Matrix> wi_;  //<number of features + segments, dim>
+  std::shared_ptr<Matrix> wo_;  //<number of features, dim>
   std::shared_ptr<Args> args_;
-  Vector hidden_;
-  Vector output_;
-  Vector grad_;
+  Vector hidden_; // dim
+  Vector output_; // number of features
+  Vector grad_; // dim
   int32_t hsz_;
-  int32_t osz_;
+  int32_t osz_; // wo->size(0) ~ number of features
   real loss_;
   int64_t nexamples_;
   std::vector<real> t_sigmoid_;
   std::vector<real> t_log_;
   // used for negative sampling:
-  std::vector<int32_t> negatives_;
+  std::vector<int32_t> negatives_;  // number of features
   size_t negpos;
   // used for hierarchical softmax:
   std::vector< std::vector<int32_t> > paths;

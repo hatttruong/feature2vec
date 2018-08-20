@@ -1,10 +1,6 @@
 /**
- * Copyright (c) 2016-present, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code, based on FastText source code, is modified to fit my
+ * application
  */
 
 #include "dictionary.h"
@@ -24,7 +20,7 @@
 namespace feature2vec {
 
 Dictionary::Dictionary(std::shared_ptr<Args> args) :
-  args_(args), feature2int_(MAX_FEATURE_SIZE, -1), size_(0), ndefinition_(0),
+  args_(args), feature2int_(MAX_FEATURE_SIZE, -1), size_(0), ndefinitions_(0),
   nfeatures_(0), nevents_(0) {
   initDefinition();
 }
@@ -83,8 +79,8 @@ void Dictionary::initDefinition() {
         n_segments++;
       }
     }
-    definition_[f.itemid] = f;
-    ndefinition_ += 1;
+    definitions_[f.itemid] = f;
+    ndefinitions_ += 1;
   }
 
   if (n_segments > args_->bucket) {
@@ -92,7 +88,7 @@ void Dictionary::initDefinition() {
       args_->bucket + " is not enough.Total segments are " + n_segments);
   }
   if (args_->verbose > 0) {
-    std::cerr << "Number of parsed feature definitions: " << ndefinition_ << std::endl;
+    std::cerr << "Number of parsed feature definitions: " << ndefinitions_ << std::endl;
     std::cerr << "Number of feature values: " << n_values << std::endl;
     std::cerr << "Number of feature segments: " << n_segments << std::endl;
   }
@@ -109,6 +105,10 @@ void Dictionary::initDefinition() {
   // ofs.close();
 }
 
+std::map<int32_t, feature_definition> Dictionary::definitions() const {
+  return definitions_;
+}
+
 int32_t Dictionary::nfeatures() const {
   return nfeatures_;
 }
@@ -116,6 +116,10 @@ int32_t Dictionary::nfeatures() const {
 
 int64_t Dictionary::nevents() const {
   return nevents_;
+}
+
+int32_t Dictionary::ndefinitions() const {
+  return ndefinitions_;
 }
 
 void Dictionary::countEvents(std::istream& ifs) {
@@ -195,10 +199,11 @@ void Dictionary::add(const int32_t itemid, const std::string& value) {
 }
 
 
+// find hash value by itemid and actual value in string
 int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
   int32_t id = -1;
 
-  struct feature_definition f = definition_.at(itemid);
+  struct feature_definition f = definitions_.at(itemid);
   if (f.type == feature_type::numeric) {
     // convert value to int
     std::string::size_type sz;   // alias of size_t
@@ -248,8 +253,8 @@ void Dictionary::initSegments() {
 
     // compute its segments
     itemid = features_[i].itemid;
-    if (definition_[itemid].type == feature_type::numeric) {
-      value = definition_[itemid].id2value[features_[i].id];
+    if (definitions_[itemid].type == feature_type::numeric) {
+      value = definitions_[itemid].id2value[features_[i].id];
       computeSegments(itemid, value, features_[i].segments);
     }
   }
@@ -261,15 +266,15 @@ void Dictionary::computeSegments(const int32_t itemid, const int32_t value,
   int32_t seg_idx;
 
   // -1 in order to add value below min_value
-  int32_t min_value = definition_.at(itemid).min_value - 1;
+  int32_t min_value = definitions_.at(itemid).min_value - 1;
   // + 1 in order to add value greater than max_value
-  int32_t max_value = definition_.at(itemid).max_value + 1;
+  int32_t max_value = definitions_.at(itemid).max_value + 1;
 
   for (size_t i = min_value; i <= max_value; i++) {
     if (i > value) {
       break;
     }
-    seg_idx = definition_.at(itemid).segment2id.at(i);
+    seg_idx = definitions_.at(itemid).segment2id.at(i);
     h = seg_idx % args_->bucket;
     nsegments.push_back(h);
   }

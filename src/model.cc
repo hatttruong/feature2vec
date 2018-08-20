@@ -199,6 +199,7 @@ void Model::dfs(int32_t k, real threshold, int32_t node, real score,
   dfs(k, threshold, tree[node].right, score + std_log(f), heap, hidden);
 }
 
+// target: index of target vector in input_
 void Model::update(const std::vector<int32_t>& input, int32_t target, real lr) {
   assert(target >= 0);
   assert(target < osz_);

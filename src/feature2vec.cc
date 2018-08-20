@@ -1,10 +1,6 @@
 /**
- * Copyright (c) 2016-present, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code, based on FastText source code, is modified to fit my
+ * application
  */
 
 #include "feature2vec.h"
@@ -143,8 +139,14 @@ void Feature2Vec::printInfo(real progress, real loss, std::ostream& log_stream) 
 }
 
 
+// events: vector<event_entry> which order by minutes_ago
+// Model::update(const std::vector<int32_t>& input, int32_t target, real lr)
+// In CBOW model, input is bounded events, target is the current event
+// TODO: mutiply boundary with a constant because there are many events happen
+// at the same time
 void Feature2Vec::cbow(Model& model, real lr,
                        const std::vector<event_entry>& events) {
+  // bow: contains index of events (themself and their segments, separately)
   std::vector<int32_t> bow;
   std::uniform_int_distribution<> uniform(1, args_->ws);
   int32_t boundary;
@@ -162,7 +164,10 @@ void Feature2Vec::cbow(Model& model, real lr,
 }
 
 
-// events: map<minutes_ago, vector<feature_idx>>
+// events: vector<event_entry> which order by minutes_ago
+// Model::update(const std::vector<int32_t>& input, int32_t target, real lr)
+// In Skipgram model, input is current events (vector of segments)
+// target is index of bounded event
 // TODO: mutiply boundary with a constant because there are many events happen
 // at the same time
 void Feature2Vec::skipgram(Model& model, real lr,
