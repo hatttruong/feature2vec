@@ -378,7 +378,8 @@ def update_value(df, features_def, item2group):
         if g_id in features_def.keys():
             if features_def[g_id]['type'] == 0:
                 # try to round it
-                value = int(float(value) * features_def[g_id]['multiply'])
+                if check_is_number(value):
+                    value = int(float(value) * features_def[g_id]['multiply'])
             else:
                 value = str(value).strip()
 
@@ -409,7 +410,7 @@ def create_item2group():
     return item2group
 
 
-def create_train_dataset(processes=6):
+def create_train_dataset(export_dir, file_name, processes):
     """
     Use multiprocessing to get data from postgres
     """
@@ -417,7 +418,6 @@ def create_train_dataset(processes=6):
     df_admissions = get_admissions()
     logger.info('Total admissions: %s', df_admissions.shape[0])
 
-    export_dir = '/media/tuanta/USB/mimic-data/train'
     # split by . to get name without extension
     # split by _ to get the last part from name (admission id)
     exported_admissions = [int(basename(f).split('.')[0].split('_')[-1])
@@ -446,35 +446,59 @@ def create_train_dataset(processes=6):
                           admission_age,
                           marital_status,
                           los_icu_h,
+                          export_dir,
                           q_log))
     logger.info('Remaining: %s admissions', len(list_args))
 
-    # start x worker processes
-    with Pool(processes=processes) as pool:
-        start_pool = datetime.now()
-        logger.info('START POOL at %s', start_pool)
-        r = pool.starmap(create_admission_train, list_args)
-        r.wait()
+    if len(list_args) > 0:
+        # start x worker processes
+        with Pool(processes=processes) as pool:
+            start_pool = datetime.now()
+            logger.info('START POOL at %s', start_pool)
+            pool.starmap(create_admission_train, list_args)
 
-        logger.info('DONE %s/%s admissions', q_log.qsize(), len(list_args))
-        total_duration = (datetime.now() - start_pool).total_seconds()
-        logger.info('TOTAL DURATION: %s seconds', total_duration)
-        logger.info('seconds/admissions: seconds',
-                    total_duration * 1.0 / q_log.qsize())
+            logger.info('DONE %s/%s admissions', q_log.qsize(), len(list_args))
+            total_duration = (datetime.now() - start_pool).total_seconds()
+            logger.info('TOTAL DURATION: %s seconds', total_duration)
+            logger.info('seconds/admissions: seconds',
+                        total_duration * 1.0 / q_log.qsize())
 
-        query_times = list()
-        update_times = list()
-        while not q_log.empty():
-            _, query_time, update_time = q.get()
-        logger.info('mean query times: %s', np.mean(query_times))
-        logger.info('mean update times: %s', np.mean(update_times))
+            query_times = list()
+            update_times = list()
+            while not q_log.empty():
+                _, query_time, update_time = q.get()
+            logger.info('mean query times: %s', np.mean(query_times))
+            logger.info('mean update times: %s', np.mean(update_times))
 
-        # Check there are no outstanding tasks
-        assert not pool._cache, 'cache = %r' % pool._cache
+            # Check there are no outstanding tasks
+            assert not pool._cache, 'cache = %r' % pool._cache
+    elif df_admissions.shape[0] > 0:
+        # concat all result to one file
+        exported_files = [f for f in listdir(export_dir)
+                          if isfile(join(export_dir, f))]
+        df = None
+        for i, f in enumerate(exported_files):
+            temp_df = pd.read_csv(os.path.join(export_dir, f))
+            if df is None:
+                df = temp_df
+            else:
+                df = df.append(temp_df, ignore_index=True)
+            if i % 100 == 0:
+                logger.info('merge %s files', (i + 1))
+        logger.info('total records: %s', df.shape[0])
+
+        # export to csv
+        df.sort_values(['hadm_id', 'minutes_ago'], axis=0,
+                       ascending=[True, True], inplace=True)
+        df.to_csv(
+            os.path.join(export_dir, file_name),
+            index=False,
+            columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
+        logger.info('concat all files to "%s"', file_name)
 
 
 def create_admission_train(admission_id, gender, admission_age, marital_status,
-                           los_icu_h, q_log):
+                           los_icu_h, export_dir, q_log):
     """Summary
 
     Args:
@@ -489,7 +513,6 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
         TYPE: Description
     """
     logger.debug('start exporting ID=%s', admission_id)
-    export_dir = '/media/tuanta/USB/mimic-data/train'
 
     features_def_path = '../output/feature_definition.json'
     features_def = load_feature_definition(features_def_path)

@@ -1,0 +1,21 @@
+#!/bin/bash
+DATA_DIR=../data/train
+CONCAT_FILE=$DATA_DIR/data_train_5.csv
+
+total_lines = 0
+for filename in $DATA_DIR/*.csv; do
+    echo "file: ${filename}";
+    tail -n +2 $filename > $filename.new
+    total_lines=$(($total_lines + $(wc -l < "$filename.new")))
+    echo "Total lines is $total_lines"
+done
+
+echo "concat temp  *.csv.new to $CONCAT_FILE";
+cat $DATA_DIR/*.new > $CONCAT_FILE
+
+concat_file_lines=$(wc -l < "$CONCAT_FILE")
+echo "Total lines of concat result is $concat_file_lines";
+
+echo "remove temporary files"
+rm -rf $DATA_DIR/*.new
+

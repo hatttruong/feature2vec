@@ -18,7 +18,13 @@ print(Configer.ip_address, Configer.port,
 print(Configer.db_name, Configer.db_username, Configer.db_password)
 
 
-# HARD CODE feature definition path and output directory
-create_train_dataset(processes=6)
+# HARD CODE feature definition path
+# /media/tuanta/USB/mimic-data/train_all_items
+# processes=6
+#
+create_train_dataset(
+    export_dir='/media/tuanta/USB/mimic-data/train',
+    file_name='data_train_5.csv',
+    processes=6)
 # create_raw_train_dataset('../output')
 # define_features('../data/raw', '../output')
