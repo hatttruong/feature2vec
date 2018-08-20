@@ -10,8 +10,9 @@ for filename in $DATA_DIR/*.csv; do
     echo "Total lines is $total_lines"
 done
 
+
 echo "concat temp  *.csv.new to $CONCAT_FILE";
-cat $DATA_DIR/*.new > $CONCAT_FILE
+find $DATA_DIR -type f -name '*.new' -exec cat {} + >> $CONCAT_FILE
 
 concat_file_lines=$(wc -l < "$CONCAT_FILE")
 echo "Total lines of concat result is $concat_file_lines";
