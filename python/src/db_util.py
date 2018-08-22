@@ -58,7 +58,7 @@ def get_events_by_admission(admission_id, itemids=None):
 
     query = "WITH chartevents_per_ad AS ( \
         SELECT hadm_id, charttime, itemid, value, valuenum FROM chartevents \
-        WHERE hadm_id=%s AND %s \
+        WHERE hadm_id=%s AND value IS NOT NULL AND %s \
         ORDER BY charttime ASC) \
         SELECT hadm_id, (DATE_PART('day', \
             C.charttime::timestamp - M.min_charttime::timestamp) * 24 + \

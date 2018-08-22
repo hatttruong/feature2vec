@@ -52,8 +52,22 @@ $ make
 
 ## Example use cases
 
-```
-$ ./fearture2vec test -dict output/feature_definition.json -input output/sample_train.csv -output aaa
+### Run test case
 
-$ ./feature2vec train -dict output/feature_definition.json -input output/sample_train.csv -output aaa -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```
+$ ./fearture2vec test -dict test_data/feature_definition.json -input test_data/sample_train.csv -output aaa
+```
+
+### Train features using CBOW
+
+```
+$ ./feature2vec cbow -dict output/feature_definition.json -input data/data_train_5.csv -output cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+```
+
+### Train features using Skipgram
+
+```
+$ ./feature2vec skipgram -dict output/feature_definition.json -input data/data_train_5.csv -output skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+```
+
+### Train model PLOS

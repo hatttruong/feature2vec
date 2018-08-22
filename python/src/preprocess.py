@@ -384,6 +384,8 @@ def update_value(df, features_def, item2group):
                 # try to round it
                 if check_is_number(value):
                     value = int(float(value) * features_def[g_id]['multiply'])
+                else:
+                    value = None
             else:
                 value = str(value).strip()
 
@@ -513,6 +515,11 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
 
     start = datetime.now()
     df_events = update_value(df_events, features_def, item2group)
+    # drop rows which have 'value' Empty
+    # axis=0: drop rows which contain missing values.
+    # how=any: If any NA values are present, drop that row or column.
+    df_events.dropna(axis=0, how='any', inplace=True)
+
     d = (datetime.now() - start).total_seconds()
     update_time = d
     logger.debug('Update time: %s seconds', d)
