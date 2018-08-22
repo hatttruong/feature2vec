@@ -18,8 +18,10 @@ void printUsage() {
   std::cerr
       << "usage: feature2vec <command> <args>\n\n"
       << "The commands supported by feature2vec are:\n\n"
-      << "  train                   train a feature2vec model\n"
-      << "  print-feature-vectors   print feature vectors given a trained model\n"
+      << "  skipgram                train a feature2vec model using skipgram\n"
+      << "  cbow                    train a feature2vec model using cbow\n"
+      << "  test                    test a feature2vec model\n"
+      // << "  print-feature-vectors   print feature vectors given a trained model\n"
       << std::endl;
 }
 

@@ -35,28 +35,40 @@ void Dictionary::initDefinition() {
   Json::Reader reader;
   Json::Value obj;
   reader.parse(in, obj); // reader can also read strings
+  Json::Value featuresObj = obj["features"];
+  Json::Value groupsObj = obj["groups"];
   if (args_->verbose > 0) {
-    std::cerr << "Number of features definitions in file:  " << obj.size() << std::endl;
+    std::cerr << "Number of features definitions in file:  " << featuresObj.size() << std::endl;
+    std::cerr << "Number of group features in file:  " << groupsObj.size() << std::endl;
+
+  }
+
+  int32_t itemid;
+  int32_t groupid;
+  for (int i = 0; i < groupsObj.size(); i++) {
+    itemid = groupsObj[i]["itemid"].asInt64();
+    groupid = groupsObj[i]["groupid"].asInt64();
+    groups_[itemid] = groupid;
   }
 
   int32_t n_values = 0; // count number of feature values
   int32_t n_segments = 0; // count number of segment values
   int32_t numeric_value; // contain value of features/segments
-  for (int i = 0; i < obj.size(); i++) {
+  for (int i = 0; i < featuresObj.size(); i++) {
     feature_definition f;
-    f.itemid = obj[i]["itemid"].asInt64();
-    if (obj[i]["type"].asInt64() == 0) {
+    f.itemid = featuresObj[i]["itemid"].asInt64();
+    if (featuresObj[i]["type"].asInt64() == 0) {
       f.type = feature_type::numeric;
     } else {
       f.type = feature_type::category;
     }
 
-    f.min_value = obj[i]["min_value"].asInt64();
-    f.max_value = obj[i]["max_value"].asInt64();
-    f.multiply = obj[i]["multiply"].asInt64();
+    f.min_value = featuresObj[i]["min_value"].asInt64();
+    f.max_value = featuresObj[i]["max_value"].asInt64();
+    f.multiply = featuresObj[i]["multiply"].asInt64();
 
     // array of data
-    const Json::Value& data = obj[i]["data"];
+    const Json::Value& data = featuresObj[i]["data"];
     for (int j = 0; j < data.size(); j++) {
       if (f.type == feature_type::numeric) {
         numeric_value = data[j]["value"].asInt64();
@@ -71,7 +83,7 @@ void Dictionary::initDefinition() {
     }
 
     // array of segments, it only applies for numeric features
-    const Json::Value& segments = obj[i]["segments"];
+    const Json::Value& segments = featuresObj[i]["segments"];
     for (int j = 0; j < segments.size(); j++) {
       if (f.type == feature_type::numeric) {
         numeric_value = segments[j]["value"].asInt64();
@@ -122,14 +134,18 @@ int32_t Dictionary::ndefinitions() const {
   return ndefinitions_;
 }
 
-void Dictionary::countEvents(std::istream& ifs) {
-
-  nevents_ = std::count(std::istreambuf_iterator<char>(ifs),
-                        std::istreambuf_iterator<char>(), '\n') - 1;
-  if (args_->verbose > 0) {
-    std::cerr << "Number of events: " << nevents_ << std::endl;
-  }
+int32_t Dictionary::ngroups() const {
+  return groups_.size();
 }
+
+// void Dictionary::countEvents(std::istream& ifs) {
+
+//   nevents_ = std::count(std::istreambuf_iterator<char>(ifs),
+//                         std::istreambuf_iterator<char>(), '\n') - 1;
+//   if (args_->verbose > 0) {
+//     std::cerr << "Number of events: " << nevents_ << std::endl;
+//   }
+// }
 
 bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) const {
   std::streambuf& sb = *in.rdbuf();
@@ -202,8 +218,7 @@ void Dictionary::add(const int32_t itemid, const std::string& value) {
 // find hash value by itemid and actual value in string
 int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
   int32_t id = -1;
-
-  struct feature_definition f = definitions_.at(itemid);
+  struct feature_definition f = definitions_.at(groups_.at(itemid));
   if (f.type == feature_type::numeric) {
     // convert value to int
     std::string::size_type sz;   // alias of size_t

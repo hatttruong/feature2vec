@@ -54,7 +54,10 @@ protected:
   static const int32_t MAX_EVENTS_SIZE = 1000000;
 
   std::shared_ptr<Args> args_;
-  std::map<int32_t, feature_definition> definitions_;  // key: itemid
+  // key: itemid, value: groupid is key of definitions_
+  std::map<int32_t, int32_t> groups_;
+  // key: itemid
+  std::map<int32_t, feature_definition> definitions_;
   // index: hash of (itemid, value), value: index of features_
   std::vector<int32_t> feature2int_;
   std::vector<entry> features_;
@@ -76,9 +79,10 @@ public:
 
   // these functions are for testing
   int32_t ndefinitions() const;
+  int32_t ngroups() const;
   std::map<int32_t, feature_definition> definitions() const;  // key: itemid
 
-  void countEvents(std::istream&);
+  // void countEvents(std::istream&);
   void readFromFile(std::istream&);
   bool readFeature(std::istream&, std::vector<std::string>&) const;
   entry getFeature(int32_t) const;

@@ -25,11 +25,11 @@ namespace feature2vec {
 UnitTest::UnitTest() {
   std::cerr << "Init class UnitTest" << std::endl;
   args_ = std::make_shared<Args>();
+  args_->verbose = 0;
 }
 
 void UnitTest::prepareTest() {
-  std::cerr << "prepare test cases" << std::endl;
-
+  // std::cerr << "prepare test cases" << std::endl;
   args_->dict = "test_data/feature_definition.json";
   args_->input = "test_data/sample_train.json";
   args_->output = "test_data/feature2vec";
@@ -91,6 +91,14 @@ void UnitTest::testInitDictionary() {
 
   // Test load dictionary
   std::shared_ptr<Dictionary> dict = std::make_shared<Dictionary>(args_);
+
+  // check number of groups
+  int32_t expected_ngroups = 26;
+  addResult(testname + "::number of groups",
+            dict->ngroups() == expected_ngroups,
+            std::to_string(expected_ngroups),
+            std::to_string(dict->ngroups()));
+
 
   // check number of definitions
   int32_t expected_ndefinition = 14;
