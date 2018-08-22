@@ -176,12 +176,19 @@ void Dictionary::readFromFile(std::istream& in) {
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,itemid,value
     if (v.size() >= 4) {
-      // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
-      // std::cerr << ", itemid=" << v[2] << ", value=" << v[3] << std::endl;
+      if (args_->verbose > 2) {
+        std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+        std::cerr << ", itemid=" << v[2] << ", value=" << v[3] << std::endl;
+      }
+
       itemid = std::stoi(v[2], &sz);
       add(itemid, v[3]);
+      if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
+        std::cerr << "\rRead " << nevents_  / 1000000 << "M events" << std::flush;
+      }
     }
   }
+  std::cerr << std::endl;
 
   initSegments();
 
@@ -200,6 +207,9 @@ void Dictionary::readFromFile(std::istream& in) {
 
 void Dictionary::add(const int32_t itemid, const std::string& value) {
   int32_t h = find(itemid, value);
+  // if <itemid, value> does not exist in definitions_, ignore it
+  if (h < 0) return;
+
   nevents_++;
   if (feature2int_[h] == -1) {
     entry e;
@@ -222,14 +232,21 @@ int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
   if (f.type == feature_type::numeric) {
     // convert value to int
     std::string::size_type sz;   // alias of size_t
-    int32_t int_value = std::stoi(value, &sz);
-    if (int_value < f.min_value) {
-      id = f.value2id[f.min_value - 1];
-    } else if (int_value > f.max_value) {
-      id = f.value2id[f.max_value + 1];
-    } else {
-      id = f.value2id[int_value];
+    try {
+      int32_t int_value = std::stoi(value, &sz);
+      if (int_value < f.min_value) {
+        id = f.value2id[f.min_value - 1];
+      } else if (int_value > f.max_value) {
+        id = f.value2id[f.max_value + 1];
+      } else {
+        id = f.value2id[int_value];
+      }
     }
+    catch (std::exception& e) {
+      // std::cerr << "ERROR: itemid=" << itemid << ", value=" << value;
+      // std::cerr << ", what(): " << e.what() << std::endl;
+    }
+
   } else {
     // hash value and look up id
     id = f.value2id[hash(value)];
