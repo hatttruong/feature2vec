@@ -219,6 +219,7 @@ def define_features(data_dir, output_dir):
     """
     features = list()
     count_features = 0
+    item2group = create_item2group()
     for group_item in GROUP_ITEMS:
         item_id = int(group_item.split()[0])
         feature_obj = dict()
@@ -321,7 +322,10 @@ def define_features(data_dir, output_dir):
         logger.info('features=%s, count=%s', name, count_features)
 
     logger.info('export features definition to file')
-    export_dict_to_json(features,
+    data = {'group': list(), 'features': features}
+    for itemid in item2group.keys():
+        data['group'].append({'itemid': itemid, 'groupid': item2group[itemid]})
+    export_dict_to_json(data,
                         os.path.join(output_dir, 'feature_definition.json'))
 
 
@@ -407,10 +411,13 @@ def create_item2group():
             else:
                 break
 
+    for _, itemid, _ in STATIC_FEATURES:
+        item2group[itemid] = itemid
+
     return item2group
 
 
-def create_train_dataset(export_dir, file_name, processes):
+def create_train_dataset(export_dir, processes):
     """
     Use multiprocessing to get data from postgres
     """
@@ -474,27 +481,7 @@ def create_train_dataset(export_dir, file_name, processes):
             assert not pool._cache, 'cache = %r' % pool._cache
     elif df_admissions.shape[0] > 0:
         # concat all result to one file
-        exported_files = [f for f in listdir(export_dir)
-                          if isfile(join(export_dir, f))]
-        df = None
-        for i, f in enumerate(exported_files):
-            temp_df = pd.read_csv(os.path.join(export_dir, f))
-            if df is None:
-                df = temp_df
-            else:
-                df = df.append(temp_df, ignore_index=True)
-            if i % 100 == 0:
-                logger.info('merge %s files', (i + 1))
-        logger.info('total records: %s', df.shape[0])
-
-        # export to csv
-        df.sort_values(['hadm_id', 'minutes_ago'], axis=0,
-                       ascending=[True, True], inplace=True)
-        df.to_csv(
-            os.path.join(export_dir, file_name),
-            index=False,
-            columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
-        logger.info('concat all files to "%s"', file_name)
+        logger.info('run "concat_train_data.sh" to concat all files')
 
 
 def create_admission_train(admission_id, gender, admission_age, marital_status,

@@ -68,7 +68,7 @@ class Configer(object):
         self.ssh_password = self.load_configuration(
             section_name, 'SshPassword')
         self.use_ssh = True if self.load_configuration(
-            section_name, 'UseSSH') == 1 else False
+            section_name, 'UseSSH') == '1' else False
 
         section_name = 'SectionDatabase'
         self.db_name = self.load_configuration(section_name, 'DatabaseName')
