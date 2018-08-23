@@ -17,14 +17,14 @@
 #include "test.h"
 #include "args.h"
 #include "dictionary.h"
-// #include "feature2vec.h"
+#include "feature2vec.h"
 
 
 namespace feature2vec {
 
 UnitTest::UnitTest() {
   std::cerr << "Init class UnitTest" << std::endl;
-  args_ = std::make_shared<Args>();
+  args_ = std::shared_ptr<Args>();
   args_->verbose = 0;
 }
 
@@ -76,6 +76,7 @@ void UnitTest::run() {
   testComputeSegments();
   testGetSegments();
   testGetCounts();
+  testTrainModel();
 
   // test cases of feature2vec class
   testGetFeatureVector()  ;
@@ -230,6 +231,25 @@ void UnitTest::testGetFeatureVector() {
   std::cerr << "Test case: testGetFeatureVector" << std::endl;
   prepareTest();
   // addResult("testGetFeatureVector", false, "expected=, actual=");
+}
+
+// test cases of feature2vec class
+void UnitTest::testTrainModel() {
+  std::cerr << "Test case: testTrainModel" << std::endl;
+  prepareTest();
+
+  // addResult("testLoadModel", false, "expected=, actual=");
+
+  // save model
+
+  // load and check
+
+  Feature2Vec feature2vec;
+  feature2vec.loadModel(args_->output + ".bin");
+  // check args
+  // check dictionary: size_, nfeatures_, nevents_, definitions_
+  // check size of input_, output_
+
 }
 
 }

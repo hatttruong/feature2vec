@@ -245,7 +245,8 @@ def define_features(data_dir, output_dir):
                 'min_value=%s, max_value=%s, multiply=%s, len(seg_values)=%s',
                 min_value, max_value, multiply, len(seg_values))
             for s in seg_values:
-                feature_obj['segments'].append({'value': s})
+                feature_obj['segments'].append(
+                    {'value': s, 'id': count_features})
                 count_features += 1
         else:
             # handle category feature
@@ -266,7 +267,7 @@ def define_features(data_dir, output_dir):
         feature_obj['multiply'] = multiply
         feature_obj['data'] = list()
         for v in unique_values:
-            feature_obj['data'].append({'value': v})
+            feature_obj['data'].append({'value': v, 'id': count_features})
             count_features += 1
 
         features.append(feature_obj)
@@ -300,7 +301,8 @@ def define_features(data_dir, output_dir):
                 'min_value=%s, max_value=%s, len(seg_values)=%s',
                 min_value, max_value, len(seg_values))
             for s in seg_values:
-                feature_obj['segments'].append({'value': s})
+                feature_obj['segments'].append(
+                    {'value': s, 'id': count_features})
                 count_features += 1
         else:
             min_value = -1
@@ -314,7 +316,7 @@ def define_features(data_dir, output_dir):
         unique_values = set(values)
         logger.info('number of values: %s', len(unique_values))
         for v in unique_values:
-            feature_obj['data'].append({'value': v})
+            feature_obj['data'].append({'value': v, 'id': count_features})
             count_features += 1
 
         features.append(feature_obj)
@@ -322,9 +324,10 @@ def define_features(data_dir, output_dir):
         logger.info('features=%s, count=%s', name, count_features)
 
     logger.info('export features definition to file')
-    data = {'group': list(), 'features': features}
+    data = {'groups': list(), 'features': features}
     for itemid in item2group.keys():
-        data['group'].append({'itemid': itemid, 'groupid': item2group[itemid]})
+        data['groups'].append(
+            {'itemid': itemid, 'groupid': item2group[itemid]})
     export_dict_to_json(data,
                         os.path.join(output_dir, 'feature_definition.json'))
 

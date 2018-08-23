@@ -51,6 +51,7 @@ protected:
   void testComputeSegments();
   void testGetSegments();
   void testGetCounts();
+  void testTrainModel();
 
   // test cases of feature2vec class
   void testGetFeatureVector();

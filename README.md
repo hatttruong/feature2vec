@@ -70,4 +70,11 @@ $ ./feature2vec cbow -dict output/feature_definition.json -input data/data_train
 $ ./feature2vec skipgram -dict output/feature_definition.json -input data/data_train_5.csv -output skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```
 
+### Print feature vector
+Print feature vector by itemid and its value
+
+```
+$ ./feature2vec print-feature-vector -dict output/feature_definition.json -model xxxx.bin
+```
+
 ### Train model PLOS

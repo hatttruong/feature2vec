@@ -50,16 +50,21 @@ struct event_entry {
 
 class Dictionary {
 protected:
+
   static const int32_t MAX_FEATURE_SIZE = 30000000;
+  // max number of events per admission
   static const int32_t MAX_EVENTS_SIZE = 1000000;
 
   std::shared_ptr<Args> args_;
   // key: itemid, value: groupid is key of definitions_
   std::map<int32_t, int32_t> groups_;
-  // key: itemid
+  // key: itemid, value: definition object which contains mapping between each
+  // value to unique id and each segments to unique id
   std::map<int32_t, feature_definition> definitions_;
-  // index: hash of (itemid, value), value: index of features_
+  // index: unique id of (itemid, value), value: index of features_
   std::vector<int32_t> feature2int_;
+  // index: value of feature2int_, value: entry object
+  // entry.id = unique id of (itemid, value)
   std::vector<entry> features_;
 
   int32_t size_;
@@ -99,6 +104,7 @@ public:
   uint32_t hash(const std::string& str) const;
   std::vector<int64_t> getCounts() const;
   void save(std::ostream&) const;
+  void load(std::istream&);
 };
 
 }
