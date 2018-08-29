@@ -39,7 +39,7 @@ $ cd ../
 $ mkdir server
 $ cd server
 $ npm init -f
-$ npm install --save nodemon eslint
+$ npm install --save nodemon eslint express body-parser cors morgan
 
 ```
 
@@ -63,4 +63,6 @@ $ node ./node_modules/eslint/bin/eslint.js  --init
 ```
 
 Start server: `npm start`
+
+
 
