@@ -34,6 +34,12 @@ $ npm run dev
 
 ### SERVER SETUP
 
+* nodemon: restart the server every time we change something in our code
+* express:
+* body-parser: parse Json
+* morgan: logger
+* cors: 
+
 ```
 $ cd ../
 $ mkdir server
@@ -54,7 +60,7 @@ Edit `package.json` with the following changes:
 
 Install `eslint`:
 
-```javascript
+```
 $ node ./node_modules/eslint/bin/eslint.js  --init
 ? How would you like to configure ESLint? Use a popular style guide
 ? Which style guide do you want to follow? Standard (https://github.com/standard/standard)
@@ -64,13 +70,30 @@ $ node ./node_modules/eslint/bin/eslint.js  --init
 
 Start server: `npm start`
 
-### Implement Request
+## Implement Request
 
 ```
 # under Client folder, install axios for doing HTTP requests
 $ npm install --save axios
 ```
 
+## Connect Postgresql
 
+We use`Sequelize` - a ORM interface to connect to Postgres
+
+```
+npm install -g sequelize-cli
+npm install --save sequelize pg pg-hstore
+```
+* **pg** will be responsible for creating the database connection
+* **pg-hstore** is a module for serializing and deserializing JSON data into the Postgres hstore format.
+
+
+
+## Validating data
+
+```
+npm install --save joi
+```
 
 
