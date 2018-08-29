@@ -64,5 +64,13 @@ $ node ./node_modules/eslint/bin/eslint.js  --init
 
 Start server: `npm start`
 
+### Implement Request
+
+```
+# under Client folder, install axios for doing HTTP requests
+$ npm install --save axios
+```
+
+
 
 
