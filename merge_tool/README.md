@@ -93,13 +93,22 @@ npm install --save sequelize pg pg-hstore
 ## Validating data
 
 ```
+cd server
 npm install --save joi
 ```
 
 ## Theme
 
-```javascript
+```
+cd client
 npm install --save vuetify
 ```
+## Login
 
+```
+cd server
+npm install --save jsonwebtoken
+npm install --save bcrypt-nodejs
+npm install --save bluebird
+```
 

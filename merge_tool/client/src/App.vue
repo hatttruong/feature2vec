@@ -1,21 +1,25 @@
 <template>
-  <!--<div id="app">-->
-    <!--<router-view/>-->
-  <!--</div>-->
-  <v-app>
-    <page-header />
+  <div id="app">
+    <v-app>
+      <page-header />
 
-    <main>
-      <v-container fluid>
-        <router-view></router-view>
-      </v-container>
-    </main>
-  </v-app>
+      <main>
+        <v-container fluid>
+          <router-view></router-view>
+        </v-container>
+      </main>
+    </v-app>
+  </div>
 </template>
 
 <script>
+import PageHeader from '@/components/Header.vue'
+
 export default {
-  name: 'App'
+  name: 'App',
+  components: {
+    PageHeader
+  }
 }
 </script>
 
@@ -29,7 +33,4 @@ export default {
   margin-top: 60px;
 }
 
-.input-group--text input {
-  border-bottom: 1px solid black;
-}
 </style>
