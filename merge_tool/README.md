@@ -96,5 +96,10 @@ npm install --save sequelize pg pg-hstore
 npm install --save joi
 ```
 
+## Theme
+
+```javascript
+npm install --save vuetify
+```
 
 

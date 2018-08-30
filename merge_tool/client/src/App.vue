@@ -1,7 +1,16 @@
 <template>
-  <div id="app">
-    <router-view/>
-  </div>
+  <!--<div id="app">-->
+    <!--<router-view/>-->
+  <!--</div>-->
+  <v-app>
+    <page-header />
+
+    <main>
+      <v-container fluid>
+        <router-view></router-view>
+      </v-container>
+    </main>
+  </v-app>
 </template>
 
 <script>
@@ -18,5 +27,9 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 60px;
+}
+
+.input-group--text input {
+  border-bottom: 1px solid black;
 }
 </style>
