@@ -105,10 +105,21 @@ npm install --save vuetify
 ```
 ## Login
 
+* jsonwebtoken: generate token from json object
+* bcrypt-nodejs: using to hash string
 ```
 cd server
 npm install --save jsonwebtoken
 npm install --save bcrypt-nodejs
 npm install --save bluebird
 ```
+## Vuex
+
+
+```
+cd client
+npm install --save vuex
+npm install --save vuex-router-sync
+```
+
 
