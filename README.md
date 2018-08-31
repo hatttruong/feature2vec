@@ -27,7 +27,15 @@ For more detail, please read at [Requirements of FastText](https://github.com/fa
 
 **Packages specilized for Feature2Vec:**
 
-*  Json in C++: ```sudo apt-get install libjsoncpp-dev```
+*  Json in C++:
+
+```
+# Linux
+$ sudo apt-get install libjsoncpp-dev
+
+# MAC
+$ brew install jsoncpp
+```
 
 ## Build Feature2vec
 
