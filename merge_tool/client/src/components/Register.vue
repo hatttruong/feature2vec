@@ -1,11 +1,8 @@
 <template>
   <v-layout row>
     <v-flex xs6 offset-xs3>
-      <div class="white elevation-2">
-        <v-toolbar flat dense class="blue" dark>
-          <v-toolbar-title>Register</v-toolbar-title>
-        </v-toolbar>
-        <div class="pl-4 pr-4 pt-2 pb-2">
+      <panel title="Register">
+        <div slot="content">
           <form name="merge-tool-form" autocomplete="off">
             <v-text-field
               label="Email"
@@ -23,13 +20,14 @@
           <br>
           <v-btn class="blue" dark @click="register">Register</v-btn>
         </div>
-      </div>
+      </panel>
     </v-flex>
   </v-layout>
 </template>
 
 <script>
 import AuthenticationService from '@/services/AuthenticationService'
+import Panel from '@/components/Panel'
 
 export default {
   name: 'Register',
@@ -39,6 +37,9 @@ export default {
       password: '',
       error: null
     }
+  },
+  components: {
+    Panel
   },
   methods: {
     async register () {

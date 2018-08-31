@@ -2,17 +2,23 @@
     <v-toolbar fixed class="blue" dark>
       <v-toolbar-title class="mr-4">
         <span class="home"
-          @click="navigateTo({name: 'root'})">
+          @click="navigateTo({name: 'merge'})">
           MergeTool
         </span>
       </v-toolbar-title>
 
-      <!--TODO-->
-      <!--<v-toolbar-items>-->
-        <!--<v-btn flat dark>-->
-          <!--Merge-->
-        <!--</v-btn>-->
-      <!--</v-toolbar-items>-->
+      <v-toolbar-items>
+        <v-btn
+          flat dark
+          @click="navigateTo({name: 'groupitems'})">
+          Groups
+        </v-btn>
+        <v-btn
+          flat dark
+          @click="navigateTo({name: 'items'})">
+          Items
+        </v-btn>
+      </v-toolbar-items>
 
       <v-spacer></v-spacer>
 
@@ -29,6 +35,12 @@
           @click="navigateTo({name: 'register'})">
           Sign Up
         </v-btn>
+        <v-btn
+          v-if="$store.state.isUserLoggedIn"
+          flat dark
+          @click="logout()">
+          Log Out
+        </v-btn>
       </v-toolbar-items>
     </v-toolbar>
 </template>
@@ -40,6 +52,13 @@ export default {
   methods: {
     navigateTo (route) {
       this.$router.push(route)
+    },
+    logout () {
+      this.$store.dispatch('setToken', null)
+      this.$store.dispatch('setUser', null)
+      this.$router.push({
+        name: 'merge'
+      })
     }
   }
 }
