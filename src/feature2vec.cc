@@ -219,6 +219,19 @@ void Feature2Vec::saveModel(const std::string path) {
   ofs.close();
 }
 
+bool Feature2Vec::checkModel(std::istream& in) {
+  int32_t magic;
+  in.read((char*)&(magic), sizeof(int32_t));
+  if (magic != FEATURE2VEC_FILEFORMAT_MAGIC_INT32) {
+    return false;
+  }
+  in.read((char*)&(version), sizeof(int32_t));
+  if (version > FEATURE2VEC_VERSION) {
+    return false;
+  }
+  return true;
+}
+
 void Feature2Vec::signModel(std::ostream& out) {
   const int32_t magic = FEATURE2VEC_FILEFORMAT_MAGIC_INT32;
   const int32_t version = FEATURE2VEC_VERSION;
@@ -260,5 +273,32 @@ void Feature2Vec::saveOutput() {
   }
   ofs.close();
 }
+
+void Feature2Vec::loadModel(const std::string& filename) {
+  std::ifstream ifs(filename, std::ifstream::binary);
+  if (!ifs.is_open()) {
+    throw std::invalid_argument(filename + " cannot be opened for loading!");
+  }
+  if (!checkModel(ifs)) {
+    throw std::invalid_argument(filename + " has wrong file format!");
+  }
+  loadModel(ifs);
+  ifs.close();
+}
+
+void Feature2Vec::loadModel(std::istream& in) {
+  args_ = std::make_shared<Args>();
+  input_ = std::make_shared<Matrix>();
+  output_ = std::make_shared<Matrix>();
+  args_->load(in);
+  dict_ = std::make_shared<Dictionary>(args_, in);
+
+  input_->load(in);
+  output_->load(in);
+
+  model_ = std::make_shared<Model>(input_, output_, args_, 0);
+  model_->setTargetCounts(dict_->getCounts());
+}
+
 
 }

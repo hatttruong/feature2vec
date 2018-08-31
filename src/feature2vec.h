@@ -68,8 +68,8 @@ public:
   void saveModel(const std::string);
   void saveOutput();
   void saveModel();
-  // void loadModel(std::istream&);
-  // void loadModel(const std::string&);
+  void loadModel(std::istream&);
+  void loadModel(const std::string&);
   void printInfo(real, real, std::ostream&);
 
 

@@ -69,13 +69,20 @@ $ ./fearture2vec test -dict test_data/feature_definition.json -input test_data/s
 ### Train features using CBOW
 
 ```
-$ ./feature2vec cbow -dict output/feature_definition.json -input data/data_train_5.csv -output cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec cbow -dict output/feature_definition.json -input data/data_train_5.csv -output models/cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```
 
 ### Train features using Skipgram
 
 ```
-$ ./feature2vec skipgram -dict output/feature_definition.json -input data/data_train_5.csv -output skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec skipgram -dict output/feature_definition.json -input data/data_train_5.csv -output models/skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+```
+
+### Print feature vector
+Print feature vector by itemid and its value
+
+```
+$ ./feature2vec print-feature-vector -dict output/feature_definition.json -model xxxx.bin
 ```
 
 ### Train model PLOS

@@ -15,6 +15,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <map>
+#include <set>
 #include "json/json.h"
 
 namespace feature2vec {
@@ -25,11 +26,23 @@ Dictionary::Dictionary(std::shared_ptr<Args> args) :
   initDefinition();
 }
 
+Dictionary::Dictionary(std::shared_ptr<Args> args, std::istream& in) :
+  args_(args), feature2int_(MAX_FEATURE_SIZE, -1), size_(0), ndefinitions_(0),
+  nfeatures_(0), nevents_(0) {
+  initDefinition();
+  load(in);
+}
+
+/**
+ * load feature definitions from json. Note that it contains full of feature
+ * values and segments while training dataset might contain a subset
+ */
 void Dictionary::initDefinition() {
   // load feature definition from json
   std::ifstream in(args_->dict);
   if (!in.is_open()) {
-    throw std::invalid_argument(args_->dict + " cannot be opened for load feature definition!");
+    throw std::invalid_argument(
+      args_->dict + " cannot be opened for load feature definition!");
   }
   // std::map<int32_t, std::string> hashTable; // TOBEREMOVE
   Json::Reader reader;
@@ -38,11 +51,13 @@ void Dictionary::initDefinition() {
   Json::Value featuresObj = obj["features"];
   Json::Value groupsObj = obj["groups"];
   if (args_->verbose > 0) {
-    std::cerr << "Number of features definitions in file:  " << featuresObj.size() << std::endl;
-    std::cerr << "Number of group features in file:  " << groupsObj.size() << std::endl;
-
+    std::cerr
+        << "\nNumber of features definitions in file:  " << featuresObj.size()
+        << "\nNumber of group features in file:  " << groupsObj.size()
+        << std::endl;
   }
 
+  // load group of item id (many item ids have the same meaning)
   int32_t itemid;
   int32_t groupid;
   for (int i = 0; i < groupsObj.size(); i++) {
@@ -51,8 +66,11 @@ void Dictionary::initDefinition() {
     groups_[itemid] = groupid;
   }
 
-  int32_t n_values = 0; // count number of feature values
-  int32_t n_segments = 0; // count number of segment values
+  // load all feature definitions from json
+  int32_t n_values = 0;
+  int32_t n_segments = 0;
+  int32_t temp_id;
+  std::set<int32_t> unique_ids;
   int32_t numeric_value; // contain value of features/segments
   for (int i = 0; i < featuresObj.size(); i++) {
     feature_definition f;
@@ -77,7 +95,12 @@ void Dictionary::initDefinition() {
         // TOBEREMOVE
         // hashTable[numeric_value] = data[j]["value"].asString();
       }
-      f.value2id[numeric_value] = n_values + n_segments;
+      // check unique id
+      temp_id = data[j]["id"].asInt64();
+      assert(unique_ids.find(temp_id) == unique_ids.end());
+      unique_ids.insert(temp_id);
+
+      f.value2id[numeric_value] = temp_id;
       f.id2value[f.value2id[numeric_value]] = numeric_value;
       n_values++;
     }
@@ -86,8 +109,13 @@ void Dictionary::initDefinition() {
     const Json::Value& segments = featuresObj[i]["segments"];
     for (int j = 0; j < segments.size(); j++) {
       if (f.type == feature_type::numeric) {
+        // check unique id
+        temp_id = segments[j]["id"].asInt64();
+        assert(unique_ids.find(temp_id) == unique_ids.end());
+        unique_ids.insert(temp_id);
+
         numeric_value = segments[j]["value"].asInt64();
-        f.segment2id[numeric_value] = n_values + n_segments;
+        f.segment2id[numeric_value] = temp_id;
         n_segments++;
       }
     }
@@ -100,9 +128,10 @@ void Dictionary::initDefinition() {
       args_->bucket + " is not enough.Total segments are " + n_segments);
   }
   if (args_->verbose > 0) {
-    std::cerr << "Number of parsed feature definitions: " << ndefinitions_ << std::endl;
-    std::cerr << "Number of feature values: " << n_values << std::endl;
-    std::cerr << "Number of feature segments: " << n_segments << std::endl;
+    std::cerr
+        << "\nNumber of parsed feature definitions: " << ndefinitions_
+        << "\nNumber of feature values: " << n_values
+        << "\nNumber of feature segments: " << n_segments << std::endl;
   }
   in.close();
 
@@ -168,6 +197,10 @@ bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) cons
   return false;
 }
 
+/**
+ * Read train data including list of events to build features_
+ * and features2int_
+ */
 void Dictionary::readFromFile(std::istream& in) {
 
   std::string::size_type sz;   // alias of size_t
@@ -406,5 +439,37 @@ void Dictionary::save(std::ostream& out) const {
     out.write((char*) & (e.count), sizeof(int64_t));
   }
 }
+
+void Dictionary::load(std::istream& in) {
+  features_.clear();
+  in.read((char*) &size_, sizeof(int32_t));
+  in.read((char*) &nfeatures_, sizeof(int32_t));
+  in.read((char*) &nevents_, sizeof(int64_t));
+
+  for (int32_t i = 0; i < size_; i++) {
+    char c;
+    entry e;
+    in.read((char*) &e.id, sizeof(int32_t));
+    in.read((char*) &e.itemid, sizeof(int32_t));
+    while ((c = in.get()) != 0) {
+      e.value.push_back(c);
+    }
+    in.read((char*) &e.count, sizeof(int64_t));
+
+    // check if entry.id = find(itemid, value)
+    assert(features_[i].id == find(e.itemid, e.value));
+
+    features_.push_back(e);
+  }
+
+  initSegments();
+
+  feature2int_.assign(MAX_FEATURE_SIZE, -1);
+  for (int32_t i = 0; i < size_; i++) {
+    feature2int_[features_[i].id] = i;
+  }
+
+}
+
 
 }

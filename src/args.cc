@@ -22,18 +22,13 @@ Args::Args() {
   ws = 60;  // in minutes
   epoch = 5;
   minCount = 5;
-  minCountLabel = 0;
   neg = 5;
-  wordNgrams = 1;
   loss = loss_name::ns;
   model = model_name::sg;
   bucket = 2000000;
-  minn = 3;
-  maxn = 6;
   thread = 12;
   lrUpdateRate = 100;
   t = 1e-4;
-  label = "__label__";
   verbose = 2;
   pretrainedVectors = "";
   saveOutput = false;
@@ -105,12 +100,8 @@ void Args::parseArgs(const std::vector<std::string>& args) {
         epoch = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-minCount") {
         minCount = std::stoi(args.at(ai + 1));
-      } else if (args[ai] == "-minCountLabel") {
-        minCountLabel = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-neg") {
         neg = std::stoi(args.at(ai + 1));
-      } else if (args[ai] == "-wordNgrams") {
-        wordNgrams = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-loss") {
         if (args.at(ai + 1) == "hs") {
           loss = loss_name::hs;
@@ -125,16 +116,10 @@ void Args::parseArgs(const std::vector<std::string>& args) {
         }
       } else if (args[ai] == "-bucket") {
         bucket = std::stoi(args.at(ai + 1));
-      } else if (args[ai] == "-minn") {
-        minn = std::stoi(args.at(ai + 1));
-      } else if (args[ai] == "-maxn") {
-        maxn = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-thread") {
         thread = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-t") {
         t = std::stof(args.at(ai + 1));
-      } else if (args[ai] == "-label") {
-        label = std::string(args.at(ai + 1));
       } else if (args[ai] == "-verbose") {
         verbose = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-pretrainedVectors") {
@@ -158,9 +143,7 @@ void Args::parseArgs(const std::vector<std::string>& args) {
     printHelp();
     exit(EXIT_FAILURE);
   }
-  if (wordNgrams <= 1 && maxn == 0) {
-    bucket = 0;
-  }
+
 }
 
 void Args::printHelp() {
@@ -184,13 +167,8 @@ void Args::printDictionaryHelp() {
   std::cerr
       << "\nThe following arguments for the dictionary are optional:\n"
       << "  -minCount           minimal number of word occurences [" << minCount << "]\n"
-      << "  -minCountLabel      minimal number of label occurences [" << minCountLabel << "]\n"
-      << "  -wordNgrams         max length of word ngram [" << wordNgrams << "]\n"
       << "  -bucket             number of buckets [" << bucket << "]\n"
-      << "  -minn               min length of char ngram [" << minn << "]\n"
-      << "  -maxn               max length of char ngram [" << maxn << "]\n"
-      << "  -t                  sampling threshold [" << t << "]\n"
-      << "  -label              labels prefix [" << label << "]\n";
+      << "  -t                  sampling threshold [" << t << "]\n";
 }
 
 void Args::printTrainingHelp() {
@@ -215,12 +193,9 @@ void Args::save(std::ostream& out) {
   out.write((char*) & (epoch), sizeof(int));
   out.write((char*) & (minCount), sizeof(int));
   out.write((char*) & (neg), sizeof(int));
-  out.write((char*) & (wordNgrams), sizeof(int));
   out.write((char*) & (loss), sizeof(loss_name));
   out.write((char*) & (model), sizeof(model_name));
   out.write((char*) & (bucket), sizeof(int));
-  out.write((char*) & (minn), sizeof(int));
-  out.write((char*) & (maxn), sizeof(int));
   out.write((char*) & (lrUpdateRate), sizeof(int));
   out.write((char*) & (t), sizeof(double));
 }
@@ -231,12 +206,9 @@ void Args::load(std::istream& in) {
   in.read((char*) & (epoch), sizeof(int));
   in.read((char*) & (minCount), sizeof(int));
   in.read((char*) & (neg), sizeof(int));
-  in.read((char*) & (wordNgrams), sizeof(int));
   in.read((char*) & (loss), sizeof(loss_name));
   in.read((char*) & (model), sizeof(model_name));
   in.read((char*) & (bucket), sizeof(int));
-  in.read((char*) & (minn), sizeof(int));
-  in.read((char*) & (maxn), sizeof(int));
   in.read((char*) & (lrUpdateRate), sizeof(int));
   in.read((char*) & (t), sizeof(double));
 }
@@ -247,12 +219,9 @@ void Args::dump(std::ostream& out) const {
   out << "epoch" << " " << epoch << std::endl;
   out << "minCount" << " " << minCount << std::endl;
   out << "neg" << " " << neg << std::endl;
-  out << "wordNgrams" << " " << wordNgrams << std::endl;
   out << "loss" << " " << lossToString(loss) << std::endl;
   out << "model" << " " << modelToString(model) << std::endl;
   out << "bucket" << " " << bucket << std::endl;
-  out << "minn" << " " << minn << std::endl;
-  out << "maxn" << " " << maxn << std::endl;
   out << "lrUpdateRate" << " " << lrUpdateRate << std::endl;
   out << "t" << " " << t << std::endl;
 }

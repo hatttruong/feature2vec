@@ -39,7 +39,7 @@ model.o: src/model.cc src/model.h src/args.h
 utils.o: src/utils.cc src/utils.h
 	$(CXX) $(CXXFLAGS) -c src/utils.cc
 
-test.o: src/test.cc src/test.h src/dictionary.h src/args.h
+test.o: src/test.cc src/test.h src/dictionary.h src/args.h src/feature2vec.h
 	$(CXX) $(CXXFLAGS) -c src/test.cc
 
 feature2vec.o: src/feature2vec.cc src/*.h

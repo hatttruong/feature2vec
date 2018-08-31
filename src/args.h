@@ -36,17 +36,12 @@ public:
   int ws;
   int epoch;
   int minCount;
-  int minCountLabel;
   int neg;
-  int wordNgrams;
   loss_name loss;
   model_name model;
   int bucket;
-  int minn;
-  int maxn;
   int thread;
   double t;
-  std::string label;
   int verbose;
   std::string pretrainedVectors;
   bool saveOutput;
