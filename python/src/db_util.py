@@ -42,6 +42,8 @@ def get_events_by_admission(admission_id, event_types=['chartevents']):
         chartevents, inputevents, outputevents, microbiologyevents
     In sample demo, we consider only chartvents
 
+    TODO: inner join with jvn_concepts to get concepid instead of itemid
+
     Args:
         admission_id (TYPE): Description
         itemids (None, optional): Description
@@ -64,7 +66,7 @@ def get_events_by_admission(admission_id, event_types=['chartevents']):
                     C.charttime::timestamp - M.min_charttime::timestamp) * 60 + \
                     DATE_PART('minute', \
                     C.charttime::timestamp - M.min_charttime::timestamp)) \
-                    AS minutes_ago, itemid, value \
+                    AS minutes_ago, itemid AS conceptid, value \
                 FROM chartevents_per_ad as C, \
                     (SELECT MIN(charttime) as min_charttime \
                     FROM chartevents_per_ad) as M " % (admission_id))
@@ -105,7 +107,7 @@ def load_concepts():
     return list of item_id
     TODO: after updating concept, return list of conceptid
     """
-    linksto = [
+    linksto_list = [
         # 'outputevents',
         # 'inputevents_cv',
         # 'inputevents_mv',
@@ -113,12 +115,31 @@ def load_concepts():
     ]
     # query = "SELECT DISTINCT conceptid, label, linksto \
     #     FROM jvn_concepts WHERE linksto IN ('%s') " % "', '".join(linksto)
-    query = "SELECT DISTINCT itemid as conceptid, label, \
-        CASE WHEN linksto='inputevents_cv' THEN 'inputevents' \
-            WHEN linksto='inputevents_mv' THEN 'inputevents' \
-            ELSE linksto \
-        END as linksto \
-        FROM d_items WHERE linksto IN ('%s') " % "', '".join(linksto)
+    queries = list()
+    for linksto in linksto_list:
+        if linksto is 'chartevents':
+            queries.append("SELECT DISTINCT D.itemid as conceptid, D.label, \
+                'chartevents' as linksto \
+                FROM chartevents as C \
+                    INNER JOIN d_items as D ON C.itemid = D.itemid\
+                WHERE C.value IS NOT NULL ")
+        elif linksto is 'outputevents':
+            # TODO
+            pass
+        elif linksto is 'inputevents_cv':
+            # TODO
+            pass
+        elif linksto is 'inputevents_mv':
+            # TODO
+            pass
+
+    query = ''
+    if len(queries) > 1:
+        queries = ['(%s)' % q for q in queries]
+        query = ' UNION ALL '.join(queries) + ' ORDER BY linksto, conceptid'
+    elif len(queries) == 1:
+        query = queries[0]
+
     df = execute_query_to_df(query)
     return df
 

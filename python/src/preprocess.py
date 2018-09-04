@@ -219,9 +219,9 @@ def define_feature_process(conceptid, label, linksto, q_log):
         TYPE: Description
     """
     start = datetime.now()
-    feature_obj = dict()
-    feature_obj['conceptid'] = conceptid
-    feature_obj['segments'] = list()
+    concept_obj = dict()
+    concept_obj['conceptid'] = conceptid
+    concept_obj['segments'] = list()
 
     logger.debug('load values of conceptid=%s, label=%s',
                  conceptid, label)
@@ -255,7 +255,7 @@ def define_feature_process(conceptid, label, linksto, q_log):
             'min_value=%s, max_value=%s, multiply=%s, len(seg_values)=%s',
             min_value, max_value, multiply, len(seg_values))
         for s in seg_values:
-            feature_obj['segments'].append({'value': s})
+            concept_obj['segments'].append({'value': s})
     else:
         # handle category feature
         is_number = False
@@ -269,22 +269,22 @@ def define_feature_process(conceptid, label, linksto, q_log):
                 unique_values.append(v)
 
     logger.debug('number of values: %s', len(unique_values))
-    feature_obj['type'] = 0 if is_number else 1
-    feature_obj['min_value'] = min_value
-    feature_obj['max_value'] = max_value
-    feature_obj['multiply'] = multiply
-    feature_obj['data'] = list()
+    concept_obj['type'] = 0 if is_number else 1
+    concept_obj['min_value'] = min_value
+    concept_obj['max_value'] = max_value
+    concept_obj['multiply'] = multiply
+    concept_obj['data'] = list()
     for v in unique_values:
-        feature_obj['data'].append({'value': v})
+        concept_obj['data'].append({'value': v})
 
     duration = (datetime.now() - start).total_seconds()
-    q_log.put((feature_obj, duration))
+    q_log.put((concept_obj, duration))
     size = q_log.qsize()
     if size % 50 == 0:
         logger.info('*********DONE %s CONCEPTS*********', size)
 
 
-def define_features(output_dir):
+def define_concepts(output_dir, processes=8):
     """
     features including all items which links to chartevents, outputevents,
     inputevents_cv, inputevents_mv
@@ -293,11 +293,10 @@ def define_features(output_dir):
 
     Args:
         output_dir (TYPE): Description
+        processes (int, optional): Description
 
     """
-    features = list()
-    count_features = 0
-    item2concept = create_item2concept()
+    concepts = list()
     df_concepts = load_concepts()
     logger.info('Total concepts: %s', df_concepts.shape[0])
 
@@ -308,13 +307,15 @@ def define_features(output_dir):
     for index, row in df_concepts.iterrows():
         list_args.append(
             (row['conceptid'], row['label'], row['linksto'], q_log))
-        if len(list_args) == 100:
-            break
+        # DEBUG
+        # if len(list_args) == 100:
+        #     break
+        # END DEBUG
 
     # use mutiprocessing
     if len(list_args) > 0:
         # start x worker processes
-        with Pool(processes=6) as pool:
+        with Pool(processes=processes) as pool:
             start_pool = datetime.now()
             logger.info('START POOL at %s', start_pool)
             pool.starmap(define_feature_process, list_args)
@@ -327,82 +328,15 @@ def define_features(output_dir):
 
             durations = list()
             while not q_log.empty():
-                feature_obj, duration = q_log.get()
-                if feature_obj is not None:
-                    features.append(feature_obj)
+                concept_obj, duration = q_log.get()
+                if concept_obj is not None:
+                    concepts.append(concept_obj)
                 durations.append(duration)
 
             logger.info('mean query times: %s', np.mean(durations))
 
             # Check there are no outstanding tasks
             assert not pool._cache, 'cache = %r' % pool._cache
-
-    # for index, row in df_concepts.iterrows():
-    #     feature_obj = dict()
-    #     feature_obj['conceptid'] = row['conceptid']
-    #     feature_obj['segments'] = list()
-
-    #     logger.debug('load values of conceptid=%s, label=%s',
-    #         feature_obj['conceptid'], row['label'])
-    #     df = load_values_of_concept(row['conceptid'], row['linksto'])
-    #     if df.shape[0] == 0:
-    #         logger.info('there is no values for conceptid=%s (linksto=%s)',
-    #             row['conceptid'], row['linksto'])
-    #         continue
-
-    #     unique_values = list()
-    #     is_number = None
-    #     min_value = None
-    #     max_value = None
-    #     multiply = None
-    #     if df.isnull().valuenum.sum()<= df.shape[0] * 0.05:
-    #         # handle numeric feature
-    #         is_number = True
-
-    #         # valuenum contained NaN
-    #         df = df[~df['valuenum'].isnull()]
-    #         temp_values = df.valuenum.tolist()
-    #         try:
-    #             unique_values, min_value, max_value, seg_values, multiply = compute_min_max(
-    #             temp_values)
-    #         except Exception as e:
-    #             logger.error('@compute_min_max: conceptid=%s',
-    #                 feature_obj['conceptid'])
-    #             raise
-    #         logger.debug(
-    #             'min_value=%s, max_value=%s, multiply=%s, len(seg_values)=%s',
-    #             min_value, max_value, multiply, len(seg_values))
-    #         for s in seg_values:
-    #             feature_obj['segments'].append(
-    #                 {'value': s, 'id': count_features})
-    #             count_features += 1
-    #     else:
-    #         # handle category feature
-    #         is_number = False
-    #         min_value = -1
-    #         max_value = -1
-    #         multiply = -1
-    #         temp_values = set(df.value.tolist())
-    #         for v in temp_values:
-    #             v = v.strip()
-    #             if len(v) > 0:
-    #                 unique_values.append(v)
-
-    #     logger.debug('number of values: %s', len(unique_values))
-    #     feature_obj['type'] = 0 if is_number else 1
-    #     feature_obj['min_value'] = min_value
-    #     feature_obj['max_value'] = max_value
-    #     feature_obj['multiply'] = multiply
-    #     feature_obj['data'] = list()
-    #     for v in unique_values:
-    #         feature_obj['data'].append({'value': v, 'id': count_features})
-    #         count_features += 1
-
-    #     features.append(feature_obj)
-
-    #     if (index + 1) % 100 == 0:
-    #         logger.info('total features=%s', count_features)
-    #         logger.info('DONE %s/%s' % (index + 1, df_concepts.shape[0]))
 
     '''
     define static features: v_first_admission.gender,
@@ -412,10 +346,10 @@ def define_features(output_dir):
     '''
     df_admissions = get_admissions()
     for name, conceptid, is_number in STATIC_FEATURES:
-        feature_obj = dict()
-        feature_obj['conceptid'] = conceptid
-        feature_obj['type'] = 0 if is_number else 1
-        feature_obj['segments'] = list()
+        concept_obj = dict()
+        concept_obj['conceptid'] = conceptid
+        concept_obj['type'] = 0 if is_number else 1
+        concept_obj['segments'] = list()
 
         values = df_admissions[name].unique()
         values = [v for v in values if v is not None]
@@ -434,49 +368,53 @@ def define_features(output_dir):
                 'min_value=%s, max_value=%s, len(seg_values)=%s',
                 min_value, max_value, len(seg_values))
             for s in seg_values:
-                feature_obj['segments'].append({'value': s})
+                concept_obj['segments'].append({'value': s})
         else:
             min_value = -1
             max_value = -1
             multiply = -1
 
-        feature_obj['min_value'] = min_value
-        feature_obj['max_value'] = max_value
-        feature_obj['multiply'] = multiply
-        feature_obj['data'] = list()
+        concept_obj['min_value'] = min_value
+        concept_obj['max_value'] = max_value
+        concept_obj['multiply'] = multiply
+        concept_obj['data'] = list()
         unique_values = set(values)
         logger.info('number of values: %s', len(unique_values))
         for v in unique_values:
-            feature_obj['data'].append({'value': v})
+            concept_obj['data'].append({'value': v})
 
-        features.append(feature_obj)
+        concepts.append(concept_obj)
 
     # set id for segments and values
-    for feature_obj in features:
-        for s in feature_obj['segments']:
+    count_features = 0
+    for concept_obj in concepts:
+        for s in concept_obj['segments']:
             s['id'] = count_features
             count_features += 1
-        for v in feature_obj['data']:
+        for v in concept_obj['data']:
             v['id'] = count_features
             count_features += 1
 
-        logger.info('conceptid=%s, number values=%s, number segments=%s',
-            feature_obj['conceptid'], len(feature_obj['data']),
-            len(feature_obj['segments']))
-        logger.info('total features: %s', count_features)
-    logger.info('TEST: %s', features[5])
+        logger.debug('conceptid=%s, number values=%s, number segments=%s',
+                    concept_obj['conceptid'], len(concept_obj['data']),
+                    len(concept_obj['segments']))
 
+    logger.info('total features: %s', count_features)
 
-    logger.info('export features definition to file')
-    data = {'concepts': list(), 'features': features}
-    for itemid in item2concept.keys():
-        data['concepts'].append(
-            {'itemid': itemid, 'conceptid': item2concept[itemid]})
+    # mapping between itemid and conceptid
+    item2concept_dict = create_item2concept()
+    item2concepts = list()
+    for itemid in item2concept_dict.keys():
+        item2concepts.append(
+            {'itemid': itemid, 'conceptid': item2concept_dict[itemid]})
+
+    logger.info('export concept definition to file')
+    data = {'item2concept': item2concepts, 'definition': concepts}
     export_dict_to_json(data,
-                        os.path.join(output_dir, 'feature_definition.json'))
+                        os.path.join(output_dir, 'concept_definition.json'))
 
 
-def load_feature_definition(file_path):
+def load_concept_definition(file_path):
     """Summary
 
     Args:
@@ -488,49 +426,53 @@ def load_feature_definition(file_path):
     No Longer Raises:
         e: Description
     """
-    features = dict()
+    concepts = dict()
     data = load_dict_from_json(file_path)
-    for f in data:
-        itemid = f['itemid']
-        features[itemid] = dict()
-        features[itemid]['type'] = f['type']
-        features[itemid]['min_value'] = f['min_value']
-        features[itemid]['max_value'] = f['max_value']
-        features[itemid]['multiply'] = f['multiply']
-        features[itemid]['data'] = dict()
+    for f in data['definition']:
+        conceptid = f['conceptid']
+        concepts[conceptid] = dict()
+        concepts[conceptid]['type'] = f['type']
+        concepts[conceptid]['min_value'] = f['min_value']
+        concepts[conceptid]['max_value'] = f['max_value']
+        concepts[conceptid]['multiply'] = f['multiply']
+        concepts[conceptid]['data'] = dict()
         for v in f['data']:
-            features[itemid]['data'][v['value']] = -1  # v['id']
+            concepts[conceptid]['data'][v['value']] = -1  # v['id']
 
-        features[itemid]['segments'] = dict()
+        concepts[conceptid]['segments'] = dict()
         for v in f['segments']:
-            features[itemid]['segments'][v['value']] = -1  # v['id']
+            concepts[conceptid]['segments'][v['value']] = -1  # v['id']
 
-    return features
+    item2concept = dict()
+    for c in data['item2concept']:
+        item2concept[c['itemid']] = c['conceptid']
+
+    return concepts, item2concept
 
 
-def update_value(df, features_def, item2concept):
+def update_value(df, concepts_def):
     """Summary
 
     Args:
         df (dataframe): Description
-        features_def (dict): Description
-        item2concept (dict): Description
+        concepts_def (dict): Description
 
     Returns:
         TYPE: Description
+
     """
     for index, row in df.iterrows():
         if pd.isnull(row['value']):
             continue
 
-        itemid = int(row['itemid'])
+        conceptid = int(row['conceptid'])
         value = row['value']
-        g_id = item2concept[itemid]
-        if g_id in features_def.keys():
-            if features_def[g_id]['type'] == 0:
+        if conceptid in concepts_def.keys():
+            if concepts_def[conceptid]['type'] == 0:
                 # try to round it
                 if check_is_number(value):
-                    value = int(float(value) * features_def[g_id]['multiply'])
+                    value = int(float(value) *
+                                concepts_def[conceptid]['multiply'])
                 else:
                     value = None
             else:
@@ -538,8 +480,7 @@ def update_value(df, features_def, item2concept):
 
             df.iloc[index, df.columns.get_loc('value')] = value
         else:
-            logger.error(
-                'error cannot find(itemid=%s)', itemid)
+            logger.error('cannot find conceptid=%s, row=%s', conceptid, row)
 
     return df
 
@@ -582,6 +523,8 @@ def create_train_dataset(export_dir, processes):
 
     # prepare arguments
     list_args = []
+    concepts_def, _ = load_concept_definition(
+        '../output/concept_definition.json')
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
         if admission_id in exported_admissions:
@@ -600,7 +543,13 @@ def create_train_dataset(export_dir, processes):
                           marital_status,
                           los_icu_h,
                           export_dir,
+                          concepts_def,
                           q_log))
+        # DEBUG
+        # if len(list_args) == 100:
+        #     break
+        # END DEBUG
+
     logger.info('Remaining: %s admissions', len(list_args))
 
     if len(list_args) > 0:
@@ -613,13 +562,15 @@ def create_train_dataset(export_dir, processes):
             logger.info('DONE %s/%s admissions', q_log.qsize(), len(list_args))
             total_duration = (datetime.now() - start_pool).total_seconds()
             logger.info('TOTAL DURATION: %s seconds', total_duration)
-            logger.info('seconds/admissions: seconds',
+            logger.info('seconds/admissions: %s seconds',
                         total_duration * 1.0 / q_log.qsize())
 
             query_times = list()
             update_times = list()
             while not q_log.empty():
                 _, query_time, update_time = q_log.get()
+                query_times.append(query_time)
+                update_times.append(update_time)
             logger.info('mean query times: %s', np.mean(query_times))
             logger.info('mean update times: %s', np.mean(update_times))
 
@@ -631,7 +582,7 @@ def create_train_dataset(export_dir, processes):
 
 
 def create_admission_train(admission_id, gender, admission_age, marital_status,
-                           los_icu_h, export_dir, q_log):
+                           los_icu_h, export_dir, concepts_def, q_log):
     """Summary
 
     Args:
@@ -647,10 +598,6 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     """
     logger.debug('start exporting ID=%s', admission_id)
 
-    features_def_path = '../output/feature_definition.json'
-    features_def = load_feature_definition(features_def_path)
-    item2concept = create_item2concept()
-
     start = datetime.now()
     df_events = get_events_by_admission(admission_id,
                                         event_types=['chartevents'])
@@ -659,7 +606,8 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     logger.debug('Query time: %s seconds', d)
 
     start = datetime.now()
-    df_events = update_value(df_events, features_def, item2concept)
+    df_events = update_value(df_events, concepts_def)
+
     # drop rows which have 'value' Empty
     # axis=0: drop rows which contain missing values.
     # how=any: If any NA values are present, drop that row or column.
@@ -678,14 +626,14 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     }
 
     static_feature_dict = list()
-    for name, itemid, is_number in STATIC_FEATURES:
+    for name, conceptid, is_number in STATIC_FEATURES:
         if static_feature[name] is None:
             continue
 
         static_feature_dict.append({
             'hadm_id': admission_id,
             'minutes_ago': -1,
-            'itemid': itemid,
+            'conceptid': conceptid,
             'value': static_feature[name]
         })
     temp_df = pd.DataFrame(static_feature_dict)
@@ -702,10 +650,10 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     df_events.to_csv(
         os.path.join(export_dir, 'data_train_%s.csv' % admission_id),
         index=False,
-        columns=['hadm_id', 'minutes_ago', 'itemid', 'value'])
+        columns=['hadm_id', 'minutes_ago', 'conceptid', 'value'])
     logger.debug('done exporting ID=%s', admission_id)
 
     q_log.put((admission_id, query_time, update_time))
     size = q_log.qsize()
-    if size % 5 == 0:
+    if size % 50 == 0:
         logger.info('*********DONE %s ADMISSIONS*********', size)
