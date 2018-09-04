@@ -1,7 +1,8 @@
 module.exports = {
   port: process.env.PORT || 8081,
   db: {
-    database: process.env.DB_NAME || 'test',
+    database: process.env.DB_NAME || 'mimic',
+    schema: process.env.SCHEMA || 'mimictest',
     user: process.env.DB_USER || 'mimicuser',
     password: process.env.DB_PASS || '123456',
     options: {

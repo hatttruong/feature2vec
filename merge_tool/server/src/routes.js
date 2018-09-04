@@ -1,7 +1,7 @@
 const AuthenticationController = require('./controllers/AuthenticationController')
 const AuthenticationControllerPolicy = require('./policies/AuthenticationControllerPolicy')
 const ItemsController = require('./controllers/ItemsController')
-const GroupItemsController = require('./controllers/GroupItemsController')
+const GroupItemsController = require('./controllers/ConceptsController')
 
 
 module.exports = (app) => {

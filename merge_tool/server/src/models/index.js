@@ -1,3 +1,5 @@
+const CLASSMETHODS = 'classMethods'
+const ASSOCIATE = 'associate'
 const fs = require('fs')
 const path = require('path')
 const Sequelize = require('sequelize')
@@ -8,7 +10,15 @@ const sequelize = new Sequelize(
   config.db.database,
   config.db.user,
   config.db.password,
-  config.db.options
+  config.db.options,
+  {
+    dialectOptions: {
+      prependSearchPath: true
+    }
+  },
+  {
+    schema: config.db.schema
+  }
 )
 
 // test connection
@@ -30,6 +40,15 @@ fs
     const model = sequelize.import(path.join(__dirname, file))
     db[model.name] = model
   })
+
+Object.keys(db).forEach(function (modelName) {
+  if (CLASSMETHODS in db[modelName].options) {
+    console.log(modelName, db[modelName].options[CLASSMETHODS])
+    if (ASSOCIATE in db[modelName].options[CLASSMETHODS]) {
+      db[modelName].options.classMethods.associate(db)
+    }
+  }
+})
 
 db.sequelize = sequelize
 db.Sequelize = Sequelize
