@@ -36,7 +36,7 @@ def get_chartevents_by_ids(item_ids, output_path=None):
     return df
 
 
-def get_events_by_admission(admission_id, itemids=None):
+def get_events_by_admission(admission_id, event_types=['chartevents']):
     """
     Get all events by admission including
         chartevents, inputevents, outputevents, microbiologyevents
@@ -49,27 +49,35 @@ def get_events_by_admission(admission_id, itemids=None):
     Returns:
         TYPE: Description
     """
-    query = ''
-    item_condition = ''
-    if itemids is not None:
-        item_condition = ' itemid in (%s) ' % ','.join(itemids)
-    else:
-        item_condition = ' 1=1 '
+    queries = []
+    for t in event_types:
+        if t == 'chartevents':
+            queries.append(
+                "WITH chartevents_per_ad AS ( \
+                    SELECT hadm_id, charttime, itemid, value, valuenum \
+                    FROM chartevents \
+                    WHERE hadm_id=%s AND value IS NOT NULL \
+                    ORDER BY charttime ASC) \
+                SELECT hadm_id, (DATE_PART('day', \
+                    C.charttime::timestamp - M.min_charttime::timestamp) * 24 + \
+                    DATE_PART('hour', \
+                    C.charttime::timestamp - M.min_charttime::timestamp) * 60 + \
+                    DATE_PART('minute', \
+                    C.charttime::timestamp - M.min_charttime::timestamp)) \
+                    AS minutes_ago, itemid, value \
+                FROM chartevents_per_ad as C, \
+                    (SELECT MIN(charttime) as min_charttime \
+                    FROM chartevents_per_ad) as M " % (admission_id))
+        elif t == 'outputevents':
+            pass
+        elif t == 'inputevents':
+            pass
 
-    query = "WITH chartevents_per_ad AS ( \
-        SELECT hadm_id, charttime, itemid, value, valuenum FROM chartevents \
-        WHERE hadm_id=%s AND value IS NOT NULL AND %s \
-        ORDER BY charttime ASC) \
-        SELECT hadm_id, (DATE_PART('day', \
-            C.charttime::timestamp - M.min_charttime::timestamp) * 24 + \
-            DATE_PART('hour', \
-            C.charttime::timestamp - M.min_charttime::timestamp) * 60 + \
-            DATE_PART('minute', \
-            C.charttime::timestamp - M.min_charttime::timestamp)) \
-            AS minutes_ago, itemid, value \
-        FROM chartevents_per_ad as C, \
-        (SELECT MIN(charttime) as min_charttime FROM chartevents_per_ad) as M \
-        ORDER BY minutes_ago ASC, itemid ASC;" % (admission_id, item_condition)
+    if len(queries) > 1:
+        queries = ['(%s)' % q for q in queries]
+        query = ' UNION ALL '.join(queries)
+    else:
+        query = queries[0]
 
     logger.debug('query=\n"%s"\n', query)
     df = execute_query_to_df(query)
@@ -88,5 +96,78 @@ def get_admissions():
     query = "SELECT DISTINCT hadm_id, gender, marital_status, admission_type, \
             admission_age, los_icu_h \
         FROM v_first_admission"
+    df = execute_query_to_df(query)
+    return df
+
+
+def load_concepts():
+    """
+    return list of item_id
+    TODO: after updating concept, return list of conceptid
+    """
+    linksto = [
+        # 'outputevents',
+        # 'inputevents_cv',
+        # 'inputevents_mv',
+        'chartevents'
+    ]
+    # query = "SELECT DISTINCT conceptid, label, linksto \
+    #     FROM jvn_concepts WHERE linksto IN ('%s') " % "', '".join(linksto)
+    query = "SELECT DISTINCT itemid as conceptid, label, \
+        CASE WHEN linksto='inputevents_cv' THEN 'inputevents' \
+            WHEN linksto='inputevents_mv' THEN 'inputevents' \
+            ELSE linksto \
+        END as linksto \
+        FROM d_items WHERE linksto IN ('%s') " % "', '".join(linksto)
+    df = execute_query_to_df(query)
+    return df
+
+
+def load_item2concepts():
+    """
+    return dataframe of item_id, itemid
+    TODO: after updating concept, return dataframe of item_id, itemid
+    """
+    # query = "SELECT DISTINCT itemid, conceptid from d_items "
+    query = "SELECT DISTINCT itemid, itemid as conceptid FROM d_items "
+    df = execute_query_to_df(query)
+    return df
+
+
+def load_values_of_concept(conceptid, linksto):
+    """
+    load all values of item_id from chartevents table
+
+    Args:
+        conceptid (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+    # TODO: query by concepts
+    # conditions = 'itemid IN (SELECT itemid FROM d_items WHERE
+    # conceptid=%s)'" % conceptid
+
+    condition = 'itemid = %s' % conceptid
+    query = ''
+    if linksto == 'chartevents':
+        query = "SELECT itemid, value, valuenum FROM chartevents \
+            WHERE value is not NULL AND (error is NULL or error != 1) \
+                AND %s " % condition
+
+    elif linksto == 'outputevents':
+        query = "SELECT itemid, value, value as valuenum FROM outputevents \
+            WHERE value is not NULL AND (iserror is NULL OR iserror != 1) \
+                AND %s " % condition
+
+    elif linksto == 'inputevents':
+        query = "SELECT itemid, amount as value, amount as valuenum \
+            FROM inputevents_cv \
+            WHERE amount is not NULL AND %s \
+            UNION ALL \
+            SELECT itemid, amount as value, amount as valuenum \
+            FROM inputevents_mv \
+            WHERE amount is not NULL AND %s " % (condition, condition)
+
     df = execute_query_to_df(query)
     return df

@@ -30,4 +30,35 @@ $ sudo python3 test_suite.py
 
 # 2. Main functions
 
-TODO
+## Prepare data for merge tool
+
+Crawl google search result for each items (save to `SearchTermResults` table)
+Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
+
+```
+id
+name
+createdBy: 'SYS'
+```
+
+For each item, calculate min, max, percentile, export distributions image
+
+```
+itemid
+label
+abbr
+dbsource
+linksto
+isnumeric
+min
+max
+percentile25th
+percentile50th
+percentile75th
+values
+distributionImg
+candidateGroupId
+groupId
+```
+
+## Prepare data to train feature

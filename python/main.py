@@ -23,8 +23,6 @@ print(Configer.ip_address, Configer.port,
 print(Configer.db_name, Configer.db_username, Configer.db_password)
 
 
-# create_raw_train_dataset('../output')
-
 if __name__ == '__main__':
     parser.add_argument(
         'action', choices=['define_features', 'create_train_dataset'],
@@ -40,20 +38,13 @@ if __name__ == '__main__':
 
     # options for definefeatures
     parser.add_argument(
-        '-i', '--input_dir',
-        help='directory of data')
-    parser.add_argument(
         '-o', '--output_dir',
         help='directory to store feature definition')
 
     args = parser.parse_args()
     if args.action == 'create_train_dataset':
-        # create_train_dataset(
-        #     export_dir='/media/tuanta/USB/mimic-data/train',
-        #     processes=6)
         create_train_dataset(
             export_dir=args.export_dir,
             processes=args.process)
     elif args.action == 'define_features':
-        # define_features('../data/raw', '../output')
-        define_features(data_dir=args.input_dir, output_dir=args.output_dir)
+        define_features(output_dir=args.output_dir)
