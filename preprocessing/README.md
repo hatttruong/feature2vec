@@ -24,7 +24,7 @@ sudo python3 connect_db.py
 ## Test
 
 ```
-$ cd python/src/test/
+$ cd preprocessing/src/test/
 $ sudo python3 test_suite.py
 ```
 
@@ -32,6 +32,7 @@ $ sudo python3 test_suite.py
 
 ## Prepare data for merge tool
 
+!TODO
 Crawl google search result for each items (save to `SearchTermResults` table)
 Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
 

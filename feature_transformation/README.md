@@ -40,7 +40,7 @@ $ brew install jsoncpp
 ## Build Feature2vec
 
 ```
-$ cd feature2vec
+$ cd feature_transformation
 $ make
 ```
 
@@ -49,7 +49,7 @@ $ make
 ### Run test case
 
 ```
-$ ./fearture2vec test -dict test_data/concept_definition_test.json -input test_data/sample_train.csv -output aaa
+$ ./fearture2vec.exe test -dict test_data/concept_definition_test.json -input test_data/sample_train.csv -output aaa
 ```
 
 ### Feature transform
@@ -63,18 +63,18 @@ There are two files we need to prepare for training **feature2vec**: `concept_de
 * Using CBOW
 
 ```
-$ ./feature2vec cbow -dict output/concept_definition.json -input data/data_train_5.csv -output models/cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec.exe cbow -dict output/concept_definition.json -input data/data_train_5.csv -output models/cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```
 
 * Using Skipgram
 
 ```
-$ ./feature2vec skipgram -dict output/concept_definition.json -input data/data_train_5.csv -output models/skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec.exe skipgram -dict output/concept_definition.json -input data/data_train_5.csv -output models/skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
 ```
 
 ### Print feature vector
 Print feature vector by itemid and its value
 
 ```
-$ ./feature2vec print-feature-vector -dict output/feature_definition.json -model xxxx.bin
+$ ./feature2vec.exe print-feature-vector -dict output/feature_definition.json -model xxxx.bin
 ```
