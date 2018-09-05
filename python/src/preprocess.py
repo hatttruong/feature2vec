@@ -296,6 +296,8 @@ def define_concepts(output_dir, processes=8):
         processes (int, optional): Description
 
     """
+    logger.info('Start define_concepts func')
+
     concepts = list()
     df_concepts = load_concepts()
     logger.info('Total concepts: %s', df_concepts.shape[0])
@@ -387,19 +389,25 @@ def define_concepts(output_dir, processes=8):
 
     # set id for segments and values
     count_features = 0
+    count_values = 0
+    count_segments = 0
     for concept_obj in concepts:
         for s in concept_obj['segments']:
             s['id'] = count_features
             count_features += 1
+            count_segments += 1
         for v in concept_obj['data']:
             v['id'] = count_features
             count_features += 1
+            count_values += 1
 
         logger.debug('conceptid=%s, number values=%s, number segments=%s',
                     concept_obj['conceptid'], len(concept_obj['data']),
                     len(concept_obj['segments']))
 
-    logger.info('total features: %s', count_features)
+    logger.info('Total Values: %s', count_values)
+    logger.info('Total Segments: %s', count_segments)
+    logger.info('Total Features: %s', count_features)
 
     # mapping between itemid and conceptid
     item2concept_dict = create_item2concept()
