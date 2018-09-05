@@ -22,16 +22,16 @@
 
 namespace feature2vec {
 
-UnitTest::UnitTest() {
+UnitTest::UnitTest(const Args args) {
   std::cerr << "Init class UnitTest" << std::endl;
-  args_ = std::shared_ptr<Args>();
+  args_ = std::make_shared<Args>(args);
   args_->verbose = 0;
 }
 
 void UnitTest::prepareTest() {
-  // std::cerr << "prepare test cases" << std::endl;
-  args_->dict = "test_data/concept_definition_test.json";
-  args_->input = "test_data/sample_train.json";
+  std::cerr << "prepare test cases" << std::endl;
+  // args_->dict = "test_data/concept_definition_test.json";
+  // args_->input = "test_data/sample_train.json";
   args_->output = "test_data/feature2vec";
 }
 
@@ -64,6 +64,7 @@ void UnitTest::printSummary() {
 
   std::cerr << "\nFailed: " << nfailed << std::endl;
 }
+
 void UnitTest::run() {
   std::cerr << "Start to run test cases" << std::endl;
   testInitDictionary();
@@ -154,13 +155,29 @@ void UnitTest::testHash() {
   std::shared_ptr<Dictionary> dict = std::make_shared<Dictionary>(args_);
 
   std::string token = "Runs Vtach";
-  int32_t expected_h = 111;
+  int32_t expected_h = 2154071813;
   int32_t actual_h = dict->hash(token);
   addResult(testname + "::hash['" + token + "']",
             actual_h == expected_h,
             std::to_string(expected_h),
             std::to_string(actual_h));
+}
 
+// copy from dictionary.cc
+uint32_t UnitTest::hash(const std::string & str) const {
+  uint32_t h = 2166136261;
+  for (size_t i = 0; i < str.size(); i++) {
+    //TOBEREMOVE
+    std::cerr << str[i] << "=" << uint32_t(int8_t(str[i])) << std::endl;
+    h = h ^ uint32_t(int8_t(str[i]));
+    //TOBEREMOVE
+    std::cerr << "h^ = " << h << std::endl;
+    h = h * 16777619;
+    //TOBEREMOVE
+    std::cerr << "h * = " << h << std::endl;
+    std::cerr << std::endl;
+  }
+  return h;
 }
 
 void UnitTest::testFindFeature() {
@@ -236,8 +253,8 @@ void UnitTest::testTrainModel() {
 
   // load and check
 
-  Feature2Vec feature2vec;
-  feature2vec.loadModel(args_->output + ".bin");
+  // Feature2Vec feature2vec;
+  // feature2vec.loadModel(args_->output + ".bin");
   // check args
   // check dictionary: size_, nfeatures_, nevents_, definitions_
   // check size of input_, output_

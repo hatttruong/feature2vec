@@ -1,4 +1,7 @@
+"""Summary
+"""
 import ctypes
+import numpy as np
 
 
 def hash(str):
@@ -14,8 +17,12 @@ def hash(str):
     for i in range(len(str)):
         int_i = int(ord(str[i]))
         print('str=%s, int=%s' % (str[i], int_i))
-        h = h ^ int_i
-        print('h ^ = %s' % int(h))
-        h = h * 16777619
-        print('h * = %s' % int(h))
+        h = np.uint32(h ^ int_i)
+        print('h ^ = %s' % h)
+        h = np.uint32(h * 16777619)
+        print('h * = %s' % h)
+
     return h
+
+if __name__ == '__main__':
+    hash('Runs Vtach')

@@ -69,7 +69,9 @@ void train(const std::vector<std::string> args) {
 }
 
 void test(const std::vector<std::string> args) {
-  UnitTest ut = UnitTest();
+  Args a = Args();
+  a.parseArgs(args);
+  UnitTest ut = UnitTest(a);
   ut.run();
 }
 

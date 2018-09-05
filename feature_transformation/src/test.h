@@ -15,9 +15,6 @@
 #include <tuple>
 
 #include "args.h"
-// #include "dictionary.h"
-// #include "feature2vec.h"
-
 
 namespace feature2vec {
 
@@ -32,6 +29,7 @@ struct test_result {
 class UnitTest {
 
 protected:
+
   std::shared_ptr<Args> args_;
   std::vector<test_result> results_;
 
@@ -39,6 +37,7 @@ protected:
   void addResult(const std::string&, bool, const std::string&,
     const std::string&);
   void printSummary();
+  uint32_t hash(const std::string &) const;
 
   // test cases of dictionary class
   void testInitDictionary();
@@ -57,7 +56,8 @@ protected:
   void testGetFeatureVector();
 
 public:
-  UnitTest();
+  // UnitTest();
+  UnitTest(const Args);
   void run();
 };
 
