@@ -250,7 +250,7 @@ void Feature2Vec::saveVectors() {
   for (int32_t i = 0; i < dict_->nfeatures(); i++) {
     entry f = dict_->getFeature(i);
     getFeatureVector(vec, i);
-    ofs << f.itemid << "," <<  f.value << "," << vec << std::endl;
+    ofs << f.conceptid << "," <<  f.value << "," << vec << std::endl;
   }
   ofs.close();
 }
@@ -269,7 +269,7 @@ void Feature2Vec::saveOutput() {
     entry f = dict_->getFeature(i);
     vec.zero();
     vec.addRow(*output_, i);
-    ofs << f.itemid << "," <<  f.value << "," << vec << std::endl;
+    ofs << f.conceptid << "," <<  f.value << "," << vec << std::endl;
   }
   ofs.close();
 }

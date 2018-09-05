@@ -23,7 +23,7 @@ typedef int32_t id_type;
 enum class feature_type : int8_t {numeric = 0, category = 1};
 
 struct feature_definition {
-  int32_t itemid;
+  int32_t conceptid;
   feature_type type;
   int32_t min_value;
   int32_t max_value;
@@ -36,8 +36,8 @@ struct feature_definition {
 };
 
 struct entry {
-  int32_t id; // hash of (itemid, value)
-  int32_t itemid;
+  int32_t id; // hash of (conceptid, value)
+  int32_t conceptid;
   std::string value; // actual value in string
   int64_t count;
   std::vector<int32_t> segments;  // index of segment in input_
@@ -56,15 +56,16 @@ protected:
   static const int32_t MAX_EVENTS_SIZE = 1000000;
 
   std::shared_ptr<Args> args_;
-  // key: itemid, value: groupid is key of definitions_
-  std::map<int32_t, int32_t> groups_;
-  // key: itemid, value: definition object which contains mapping between each
-  // value to unique id and each segments to unique id
+
+  // key: conceptid, value: definition object which contains mapping between
+  // each value to unique id and each segments to unique id
   std::map<int32_t, feature_definition> definitions_;
-  // index: unique id of (itemid, value), value: index of features_
+
+  // index: unique id of (conceptid, value), value: index of features_
   std::vector<int32_t> feature2int_;
+
   // index: value of feature2int_, value: entry object
-  // entry.id = unique id of (itemid, value)
+  // entry.id = unique id of (conceptid, value)
   std::vector<entry> features_;
 
   int32_t size_;
@@ -84,8 +85,7 @@ public:
 
   // these functions are for testing
   int32_t ndefinitions() const;
-  int32_t ngroups() const;
-  std::map<int32_t, feature_definition> definitions() const;  // key: itemid
+  std::map<int32_t, feature_definition> definitions() const;  // key: conceptid
 
   // void countEvents(std::istream&);
   void readFromFile(std::istream&);

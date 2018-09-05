@@ -34,7 +34,7 @@ Dictionary::Dictionary(std::shared_ptr<Args> args, std::istream& in) :
 }
 
 /**
- * load feature definitions from json. Note that it contains full of feature
+ * load concept definitions from json. Note that it contains full of concept
  * values and segments while training dataset might contain a subset
  */
 void Dictionary::initDefinition() {
@@ -42,51 +42,42 @@ void Dictionary::initDefinition() {
   std::ifstream in(args_->dict);
   if (!in.is_open()) {
     throw std::invalid_argument(
-      args_->dict + " cannot be opened for load feature definition!");
+      args_->dict + " cannot be opened for load concept definition!");
   }
   // std::map<int32_t, std::string> hashTable; // TOBEREMOVE
   Json::Reader reader;
   Json::Value obj;
   reader.parse(in, obj); // reader can also read strings
-  Json::Value featuresObj = obj["features"];
-  Json::Value groupsObj = obj["groups"];
+  Json::Value conceptObj = obj["definition"];
+  Json::Value item2conceptObj = obj["item2concept"];
   if (args_->verbose > 0) {
     std::cerr
-        << "\nNumber of features definitions in file:  " << featuresObj.size()
-        << "\nNumber of group features in file:  " << groupsObj.size()
+        << "\nNumber of concept definitions in file:  " << conceptObj.size()
+        << "\nNumber of item2concept in file:  " << item2conceptObj.size()
         << std::endl;
   }
 
-  // load group of item id (many item ids have the same meaning)
-  int32_t itemid;
-  int32_t groupid;
-  for (int i = 0; i < groupsObj.size(); i++) {
-    itemid = groupsObj[i]["itemid"].asInt64();
-    groupid = groupsObj[i]["groupid"].asInt64();
-    groups_[itemid] = groupid;
-  }
-
-  // load all feature definitions from json
+  // load all concept definitions from json
   int32_t n_values = 0;
   int32_t n_segments = 0;
   int32_t temp_id;
   std::set<int32_t> unique_ids;
-  int32_t numeric_value; // contain value of features/segments
-  for (int i = 0; i < featuresObj.size(); i++) {
+  int32_t numeric_value; // contain value of concepts/segments
+  for (int i = 0; i < conceptObj.size(); i++) {
     feature_definition f;
-    f.itemid = featuresObj[i]["itemid"].asInt64();
-    if (featuresObj[i]["type"].asInt64() == 0) {
+    f.conceptid = conceptObj[i]["conceptid"].asInt64();
+    if (conceptObj[i]["type"].asInt64() == 0) {
       f.type = feature_type::numeric;
     } else {
       f.type = feature_type::category;
     }
 
-    f.min_value = featuresObj[i]["min_value"].asInt64();
-    f.max_value = featuresObj[i]["max_value"].asInt64();
-    f.multiply = featuresObj[i]["multiply"].asInt64();
+    f.min_value = conceptObj[i]["min_value"].asInt64();
+    f.max_value = conceptObj[i]["max_value"].asInt64();
+    f.multiply = conceptObj[i]["multiply"].asInt64();
 
     // array of data
-    const Json::Value& data = featuresObj[i]["data"];
+    const Json::Value& data = conceptObj[i]["data"];
     for (int j = 0; j < data.size(); j++) {
       if (f.type == feature_type::numeric) {
         numeric_value = data[j]["value"].asInt64();
@@ -106,7 +97,7 @@ void Dictionary::initDefinition() {
     }
 
     // array of segments, it only applies for numeric features
-    const Json::Value& segments = featuresObj[i]["segments"];
+    const Json::Value& segments = conceptObj[i]["segments"];
     for (int j = 0; j < segments.size(); j++) {
       if (f.type == feature_type::numeric) {
         // check unique id
@@ -119,7 +110,7 @@ void Dictionary::initDefinition() {
         n_segments++;
       }
     }
-    definitions_[f.itemid] = f;
+    definitions_[f.conceptid] = f;
     ndefinitions_ += 1;
   }
 
@@ -163,10 +154,6 @@ int32_t Dictionary::ndefinitions() const {
   return ndefinitions_;
 }
 
-int32_t Dictionary::ngroups() const {
-  return groups_.size();
-}
-
 // void Dictionary::countEvents(std::istream& ifs) {
 
 //   nevents_ = std::count(std::istreambuf_iterator<char>(ifs),
@@ -204,18 +191,18 @@ bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) cons
 void Dictionary::readFromFile(std::istream& in) {
 
   std::string::size_type sz;   // alias of size_t
-  int32_t itemid;
+  int32_t conceptid;
   std::vector<std::string> v;
   while (readFeature(in, v)) {
-    // hadm_id,minutes_ago,itemid,value
+    // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
       if (args_->verbose > 2) {
         std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
-        std::cerr << ", itemid=" << v[2] << ", value=" << v[3] << std::endl;
+        std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
       }
 
-      itemid = std::stoi(v[2], &sz);
-      add(itemid, v[3]);
+      conceptid = std::stoi(v[2], &sz);
+      add(conceptid, v[3]);
       if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
         std::cerr << "\rRead " << nevents_  / 1000000 << "M events" << std::flush;
       }
@@ -238,16 +225,16 @@ void Dictionary::readFromFile(std::istream& in) {
   }
 }
 
-void Dictionary::add(const int32_t itemid, const std::string& value) {
-  int32_t h = find(itemid, value);
-  // if <itemid, value> does not exist in definitions_, ignore it
+void Dictionary::add(const int32_t conceptid, const std::string& value) {
+  int32_t h = find(conceptid, value);
+  // if <conceptid, value> does not exist in definitions_, ignore it
   if (h < 0) return;
 
   nevents_++;
   if (feature2int_[h] == -1) {
     entry e;
     e.id = h;
-    e.itemid = itemid;
+    e.conceptid = conceptid;
     e.value = value.c_str();
     e.count = 1;
     features_.push_back(e);
@@ -258,10 +245,10 @@ void Dictionary::add(const int32_t itemid, const std::string& value) {
 }
 
 
-// find hash value by itemid and actual value in string
-int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
+// find hash value by conceptid and actual value in string
+int32_t Dictionary::find(const int32_t conceptid, const std::string& value) const {
   int32_t id = -1;
-  struct feature_definition f = definitions_.at(groups_.at(itemid));
+  struct feature_definition f = definitions_.at(conceptid);
   if (f.type == feature_type::numeric) {
     // convert value to int
     std::string::size_type sz;   // alias of size_t
@@ -276,7 +263,7 @@ int32_t Dictionary::find(const int32_t itemid, const std::string& value) const {
       }
     }
     catch (std::exception& e) {
-      // std::cerr << "ERROR: itemid=" << itemid << ", value=" << value;
+      // std::cerr << "ERROR: conceptid=" << conceptid << ", value=" << value;
       // std::cerr << ", what(): " << e.what() << std::endl;
     }
 
@@ -307,9 +294,9 @@ uint32_t Dictionary::hash(const std::string & str) const {
 // initSegments applied for numeric features only
 // input_ has size of nfeatures_ + args_-> bucket
 // index of segment in input_ vector is specified by this formular:
-// nfeatures_ + definitions_[itemid].segments[xx] % args_-> bucket
+// nfeatures_ + definitions_[conceptid].segments[xx] % args_-> bucket
 void Dictionary::initSegments() {
-  int32_t itemid;
+  int32_t conceptid;
   int32_t value;
   for (size_t i = 0; i < size_; i++) {
     features_[i].segments.clear();
@@ -317,29 +304,29 @@ void Dictionary::initSegments() {
     features_[i].segments.push_back(i);
 
     // compute its segments
-    itemid = features_[i].itemid;
-    if (definitions_[itemid].type == feature_type::numeric) {
-      value = definitions_[itemid].id2value[features_[i].id];
-      computeSegments(itemid, value, features_[i].segments);
+    conceptid = features_[i].conceptid;
+    if (definitions_[conceptid].type == feature_type::numeric) {
+      value = definitions_[conceptid].id2value[features_[i].id];
+      computeSegments(conceptid, value, features_[i].segments);
     }
   }
 }
 
-void Dictionary::computeSegments(const int32_t itemid, const int32_t value,
+void Dictionary::computeSegments(const int32_t conceptid, const int32_t value,
                                  std::vector<int32_t>& nsegments) const {
   int32_t h;
   int32_t seg_idx;
 
   // -1 in order to add value below min_value
-  int32_t min_value = definitions_.at(itemid).min_value - 1;
+  int32_t min_value = definitions_.at(conceptid).min_value - 1;
   // + 1 in order to add value greater than max_value
-  int32_t max_value = definitions_.at(itemid).max_value + 1;
+  int32_t max_value = definitions_.at(conceptid).max_value + 1;
 
   for (size_t i = min_value; i <= max_value; i++) {
     if (i > value) {
       break;
     }
-    seg_idx = definitions_.at(itemid).segment2id.at(i);
+    seg_idx = definitions_.at(conceptid).segment2id.at(i);
     h = seg_idx % args_->bucket;
     nsegments.push_back(h);
   }
@@ -366,13 +353,13 @@ int32_t Dictionary::getEvents(std::istream & in,
   int32_t cur_hadm_id = -1;
   int32_t new_hadm_id;
   std::vector<std::string> v;
-  int32_t itemid;
+  int32_t conceptid;
   int32_t h;
   int32_t minutes_ago;
   int32_t pos = 0;
   events.clear();
   while (readFeature(in, v)) {
-    // hadm_id,minutes_ago,itemid,value
+    // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
       new_hadm_id = std::stoi(v[0], &sz);
 
@@ -389,13 +376,13 @@ int32_t Dictionary::getEvents(std::istream & in,
       // record the position
       pos = in.tellg();
 
-      itemid = std::stoi(v[2], &sz);
-      h = find(itemid, v[3]);
+      conceptid = std::stoi(v[2], &sz);
+      h = find(conceptid, v[3]);
       if (h < 0) continue;
 
       // TOBEREMOVE
       // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
-      // std::cerr << ", itemid=" << v[2] << ", value=" << v[3];
+      // std::cerr << ", conceptid=" << v[2] << ", value=" << v[3];
       // std::cerr << ", fid=" << fid << std::endl;
       nevents++;
       minutes_ago = std::stoi(v[1], &sz);
@@ -433,7 +420,7 @@ void Dictionary::save(std::ostream& out) const {
   for (int32_t i = 0; i < size_; i++) {
     entry e = features_[i];
     out.write((char*) & (e.id), sizeof(int32_t));
-    out.write((char*) & (e.itemid), sizeof(int32_t));
+    out.write((char*) & (e.conceptid), sizeof(int32_t));
     out.write(e.value.data(), e.value.size() * sizeof(char));
     out.put(0);
     out.write((char*) & (e.count), sizeof(int64_t));
@@ -450,14 +437,14 @@ void Dictionary::load(std::istream& in) {
     char c;
     entry e;
     in.read((char*) &e.id, sizeof(int32_t));
-    in.read((char*) &e.itemid, sizeof(int32_t));
+    in.read((char*) &e.conceptid, sizeof(int32_t));
     while ((c = in.get()) != 0) {
       e.value.push_back(c);
     }
     in.read((char*) &e.count, sizeof(int64_t));
 
-    // check if entry.id = find(itemid, value)
-    assert(features_[i].id == find(e.itemid, e.value));
+    // check if entry.id = find(conceptid, value)
+    assert(features_[i].id == find(e.conceptid, e.value));
 
     features_.push_back(e);
   }

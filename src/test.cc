@@ -30,7 +30,7 @@ UnitTest::UnitTest() {
 
 void UnitTest::prepareTest() {
   // std::cerr << "prepare test cases" << std::endl;
-  args_->dict = "test_data/feature_definition.json";
+  args_->dict = "test_data/concept_definition_test.json";
   args_->input = "test_data/sample_train.json";
   args_->output = "test_data/feature2vec";
 }
@@ -93,14 +93,6 @@ void UnitTest::testInitDictionary() {
   // Test load dictionary
   std::shared_ptr<Dictionary> dict = std::make_shared<Dictionary>(args_);
 
-  // check number of groups
-  int32_t expected_ngroups = 26;
-  addResult(testname + "::number of groups",
-            dict->ngroups() == expected_ngroups,
-            std::to_string(expected_ngroups),
-            std::to_string(dict->ngroups()));
-
-
   // check number of definitions
   int32_t expected_ndefinition = 14;
   addResult(testname + "::number of definitions",
@@ -111,16 +103,16 @@ void UnitTest::testInitDictionary() {
   // check if id of values and segments are unique
   std::map<int32_t, feature_definition> definitions = dict->definitions();
   std::set<int> ids;
-  int32_t expected_nvalues = 1941;
+  int32_t expected_nvalues = 1434;
   int32_t actual_nvalues = 0;
-  int32_t expected_nsegments = 1214;
+  int32_t expected_nsegments = 899;
   int32_t actual_nsegments = 0;
   for (auto const& d : definitions) {
     // loop through value
     for (auto const&  value2id :  d.second.value2id)  {
       if (ids.count(value2id.second) > 0) {
         addResult(testname + "::duplicate id (value)", false, "not duplicate",
-                  "duplicate(itemid=" + std::to_string(d.second.itemid)
+                  "duplicate(conceptid=" + std::to_string(d.second.conceptid)
                   + ", id=" + std::to_string(value2id.second)
                   + ", value=" + std::to_string(value2id.first));
       } else {
@@ -133,7 +125,7 @@ void UnitTest::testInitDictionary() {
     for (auto const&  segment2id :  d.second.segment2id)  {
       if (ids.count(segment2id.second) > 0) {
         addResult(testname + "::duplicate id (segments)", false, "not duplicate",
-                  "duplicate(itemid=" + std::to_string(d.second.itemid)
+                  "duplicate(conceptid=" + std::to_string(d.second.conceptid)
                   + ", id=" + std::to_string(segment2id.second)
                   + ", value=" + std::to_string(segment2id.first) + ")");
       } else {
