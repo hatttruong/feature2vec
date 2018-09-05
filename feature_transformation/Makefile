@@ -46,7 +46,7 @@ feature2vec.o: src/feature2vec.cc src/*.h
 	$(CXX) $(CXXFLAGS) -c src/feature2vec.cc
 
 feature2vec: $(OBJS) src/feature2vec.cc
-	$(CXX) $(CXXFLAGS) $(OBJS) src/main.cc -o feature2vec
+	$(CXX) $(CXXFLAGS) $(OBJS) src/main.cc -o feature2vec.exe
 
 clean:
 	rm -rf *.o feature2vec
