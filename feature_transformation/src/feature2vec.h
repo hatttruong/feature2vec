@@ -51,7 +51,9 @@ public:
 
   // int32_t getWordId(const std::string&) const;
   // int32_t getSubwordId(const std::string&) const;
+  void sumAndNormalizeNSegments(Vector&, const std::vector<int32_t>&) const;
   void getFeatureVector(Vector&, const int32_t) const;
+  void getFeatureVector(Vector&, const int32_t, const std::string&) const;
   // void getVector(Vector&, const std::string&) const;
   // void getSubwordVector(Vector&, const std::string&) const;
   void addInputVector(Vector&, int32_t) const;

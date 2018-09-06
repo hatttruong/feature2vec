@@ -406,6 +406,14 @@ const std::vector<int32_t>& Dictionary::getSegments(int32_t i) const {
   return features_[i].segments;
 }
 
+// get segments by concepid and value
+const std::vector<int32_t>& Dictionary::getSegments(int32_t conceptid,
+    const std::string& value) const {
+  int32_t id = find(conceptid, value);
+  return getSegments(id);
+}
+
+
 entry Dictionary::getFeature(int32_t id) const {
   assert(id >= 0);
   assert(id < size_);

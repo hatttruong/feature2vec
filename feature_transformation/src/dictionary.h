@@ -101,6 +101,7 @@ public:
     const int32_t,
     std::vector<int32_t>&) const;
   const std::vector<int32_t>& getSegments(int32_t) const;
+  const std::vector<int32_t>& getSegments(int32_t, const std::string&) const;
   uint32_t hash(const std::string& str) const;
   std::vector<int64_t> getCounts() const;
   void save(std::ostream&) const;

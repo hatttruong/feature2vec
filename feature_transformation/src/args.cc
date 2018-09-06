@@ -166,7 +166,7 @@ void Args::printBasicHelp() {
 void Args::printDictionaryHelp() {
   std::cerr
       << "\nThe following arguments for the dictionary are optional:\n"
-      << "  -minCount           minimal number of word occurences [" << minCount << "]\n"
+      << "  -minCount           minimal number of feature occurences [" << minCount << "]\n"
       << "  -bucket             number of buckets [" << bucket << "]\n"
       << "  -t                  sampling threshold [" << t << "]\n";
 }
@@ -176,13 +176,13 @@ void Args::printTrainingHelp() {
       << "\nThe following arguments for training are optional:\n"
       << "  -lr                 learning rate [" << lr << "]\n"
       << "  -lrUpdateRate       change the rate of updates for the learning rate [" << lrUpdateRate << "]\n"
-      << "  -dim                size of word vectors [" << dim << "]\n"
+      << "  -dim                size of feature vectors [" << dim << "]\n"
       << "  -ws                 size of the context window [" << ws << "]\n"
       << "  -epoch              number of epochs [" << epoch << "]\n"
       << "  -neg                number of negatives sampled [" << neg << "]\n"
       << "  -loss               loss function {ns, hs, softmax} [" << lossToString(loss) << "]\n"
       << "  -thread             number of threads [" << thread << "]\n"
-      << "  -pretrainedVectors  pretrained word vectors for supervised learning [" << pretrainedVectors << "]\n"
+      << "  -pretrainedVectors  pretrained feature vectors for supervised learning [" << pretrainedVectors << "]\n"
       << "  -saveOutput         whether output params should be saved [" << boolToString(saveOutput) << "]\n";
 }
 
@@ -198,6 +198,10 @@ void Args::save(std::ostream& out) {
   out.write((char*) & (bucket), sizeof(int));
   out.write((char*) & (lrUpdateRate), sizeof(int));
   out.write((char*) & (t), sizeof(double));
+
+  // save dictionary path
+  out.write(dict.data(), dict.size() * sizeof(char));
+  out.put(0);
 }
 
 void Args::load(std::istream& in) {
@@ -211,6 +215,13 @@ void Args::load(std::istream& in) {
   in.read((char*) & (bucket), sizeof(int));
   in.read((char*) & (lrUpdateRate), sizeof(int));
   in.read((char*) & (t), sizeof(double));
+
+  // load dictionary path
+  char c;
+  while ((c = in.get()) != 0) {
+    dict.push_back(c);
+  }
+
 }
 
 void Args::dump(std::ostream& out) const {

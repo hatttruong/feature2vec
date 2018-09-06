@@ -191,8 +191,19 @@ void Feature2Vec::skipgram(Model& model, real lr,
 
 void Feature2Vec::getFeatureVector(Vector& vec, const int32_t idx) const {
   const std::vector<int32_t>& nsegments = dict_->getSegments(idx);
+  sumAndNormalizeNSegments(vec, nsegments);
+}
+
+void Feature2Vec::getFeatureVector(Vector& vec, const int32_t conceptid,
+                                   const std::string& value) const {
+  const std::vector<int32_t>& nsegments = dict_->getSegments(conceptid, value);
+  sumAndNormalizeNSegments(vec, nsegments);
+}
+
+void Feature2Vec::sumAndNormalizeNSegments(Vector& vec,
+    const std::vector<int32_t>& nsegments) const {
   vec.zero();
-  for (int i = 0; i < nsegments.size(); i ++) {
+  for (int i = 0; i < nsegments.size(); i++) {
     addInputVector(vec, nsegments[i]);
   }
   if (nsegments.size() > 0) {
@@ -221,11 +232,11 @@ void Feature2Vec::saveModel(const std::string path) {
 
 bool Feature2Vec::checkModel(std::istream& in) {
   int32_t magic;
-  in.read((char*)&(magic), sizeof(int32_t));
+  in.read((char*) & (magic), sizeof(int32_t));
   if (magic != FEATURE2VEC_FILEFORMAT_MAGIC_INT32) {
     return false;
   }
-  in.read((char*)&(version), sizeof(int32_t));
+  in.read((char*) & (version), sizeof(int32_t));
   if (version > FEATURE2VEC_VERSION) {
     return false;
   }
@@ -299,6 +310,5 @@ void Feature2Vec::loadModel(std::istream& in) {
   model_ = std::make_shared<Model>(input_, output_, args_, 0);
   model_->setTargetCounts(dict_->getCounts());
 }
-
 
 }

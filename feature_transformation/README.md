@@ -63,18 +63,18 @@ There are two files we need to prepare for training **feature2vec**: `concept_de
 * Using CBOW
 
 ```
-$ ./feature2vec.exe cbow -dict ../output/concept_definition.json -input ../data/data_train_5.csv -output ../models/cbow_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec.exe cbow -dict ../output/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/cbow_ce_nm -epoch 5 -verbose 2 -saveOutput
 ```
 
 * Using Skipgram
 
 ```
-$ ./feature2vec.exe skipgram -dict ../output/concept_definition.json -input ../data/data_train_5.csv -output ../models/skipgram_5 -verbose 2 -thread 1 -lrUpdateRate 5 -epoch 1
+$ ./feature2vec.exe skipgram -dict ../output/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/skipgram_ce_nm -epoch 5 -verbose 2 -saveOutput
 ```
 
 ### Print feature vector
 Print feature vector by itemid and its value
 
 ```
-$ ./feature2vec.exe print-feature-vector -dict ../output/feature_definition.json -model xxxx.bin
+$ ./feature2vec.exe print-feature-vectors model_name.bin ../test_data/queries.txt ../output/queries_vector.txt
 ```
