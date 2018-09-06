@@ -4,6 +4,7 @@
 
 output/
 data/
+models/
 
 # model
 *.bin
