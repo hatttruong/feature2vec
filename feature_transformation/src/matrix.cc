@@ -13,7 +13,6 @@
 #include <exception>
 #include <stdexcept>
 
-#include "utils.h"
 #include "vector.h"
 
 namespace feature2vec {

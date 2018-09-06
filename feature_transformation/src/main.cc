@@ -90,7 +90,7 @@ void printFeatureVectors(const std::vector<std::string> args) {
     if (v.size() >= 2) {
       conceptid = std::stoi(v[0], &sz);
       std::cerr << "Data: conceptid=" << conceptid << ", value=" << v[1] << std::endl;
-      feature2vec.getFeatureVector(vec, conceptid, value);
+      feature2vec.getFeatureVector(vec, conceptid, v[1]);
       ofs << vec << std::endl;
     }
   }

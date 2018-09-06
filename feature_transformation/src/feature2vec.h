@@ -81,7 +81,7 @@ public:
   // void precomputeWordVectors(Matrix&);
   // void ngramVectors(std::string);
   // std::vector<int32_t> selectEmbeddings(int32_t) const;
-  // int getDimension() const;
+  int getDimension() const;
   void trainThread(int32_t);
   // void loadVectors(std::string);
 

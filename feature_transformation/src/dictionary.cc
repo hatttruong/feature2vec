@@ -4,6 +4,8 @@
  */
 
 #include "dictionary.h"
+#include "utils.h"
+
 #include <vector>
 #include <string>
 #include <sstream>
@@ -193,6 +195,8 @@ void Dictionary::readFromFile(std::istream& in) {
   std::string::size_type sz;   // alias of size_t
   int32_t conceptid;
   std::vector<std::string> v;
+
+  std::cerr << "\rStart readFromFile at: " << utils::currentDateTime() << std::endl;
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
@@ -209,6 +213,7 @@ void Dictionary::readFromFile(std::istream& in) {
     }
   }
   std::cerr << std::endl;
+  std::cerr << "End at: " << utils::currentDateTime() << std::endl;
 
   initSegments();
 

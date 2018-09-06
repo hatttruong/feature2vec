@@ -24,13 +24,13 @@ jsoncpp.o: src/jsoncpp.cpp src/json/json.h
 args.o: src/args.cc src/args.h
 	$(CXX) $(CXXFLAGS) -c src/args.cc
 
-dictionary.o: src/dictionary.cc src/dictionary.h src/args.h src/json/json.h
+dictionary.o: src/dictionary.cc src/dictionary.h src/args.h src/json/json.h src/utils.h
 	$(CXX) $(CXXFLAGS) -c src/dictionary.cc
 
-matrix.o: src/matrix.cc src/matrix.h src/utils.h
+matrix.o: src/matrix.cc src/matrix.h
 	$(CXX) $(CXXFLAGS) -c src/matrix.cc
 
-vector.o: src/vector.cc src/vector.h src/utils.h
+vector.o: src/vector.cc src/vector.h
 	$(CXX) $(CXXFLAGS) -c src/vector.cc
 
 model.o: src/model.cc src/model.h src/args.h

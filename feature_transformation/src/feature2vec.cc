@@ -311,4 +311,8 @@ void Feature2Vec::loadModel(std::istream& in) {
   model_->setTargetCounts(dict_->getCounts());
 }
 
+int Feature2Vec::getDimension() const {
+  return args_->dim;
+}
+
 }
