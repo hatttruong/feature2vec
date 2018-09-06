@@ -614,6 +614,7 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     logger.debug('Query time: %s seconds', d)
 
     start = datetime.now()
+    # TODO: update_value takes long time, need to improve
     df_events = update_value(df_events, concepts_def)
 
     # drop rows which have 'value' Empty
@@ -657,6 +658,7 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
                           ascending=[True, True], inplace=True)
     df_events.to_csv(
         os.path.join(export_dir, 'data_train_%s.csv' % admission_id),
+        header=False,
         index=False,
         columns=['hadm_id', 'minutes_ago', 'conceptid', 'value'])
     logger.debug('done exporting ID=%s', admission_id)

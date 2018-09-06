@@ -1,22 +1,30 @@
 #!/bin/bash
-DATA_DIR=../data/train
-CONCAT_FILE=$DATA_DIR/data_train_5.csv
+DATA_DIR=../data
+TRAIN_DIR=$DATA_DIR/train
+CONCAT_FILE=$DATA_DIR/data_train_chartevents_not_merge.csv
 
-total_lines = 0
-for filename in $DATA_DIR/*.csv; do
-    echo "file: ${filename}";
-    tail -n +2 $filename > $filename.new
-    total_lines=$(($total_lines + $(wc -l < "$filename.new")))
-    echo "Total lines is $total_lines"
-done
+# CASE 1: csv files contain header
+# # remove header of files
+# total_lines=0
+# for filename in $TRAIN_DIR/*.csv; do
+#     echo "file: ${filename}";
+#     tail -n +2 $filename > $filename.new
+#     total_lines=$(($total_lines + $(wc -l < "$filename.new")))
+#     echo "Total lines is $total_lines"
+# done
 
+# echo "concat temp  *.csv.new to $CONCAT_FILE";
+# find $TRAIN_DIR -type f -name '*.new' -exec cat {} + >> $CONCAT_FILE
 
-echo "concat temp  *.csv.new to $CONCAT_FILE";
-find $DATA_DIR -type f -name '*.new' -exec cat {} + >> $CONCAT_FILE
+# concat_file_lines=$(wc -l < "$CONCAT_FILE")
+# echo "Total lines of concat result is $concat_file_lines";
+
+# echo "remove temporary files"
+# rm -rf $TRAIN_DIR/*.new
+
+# CASE 2: csv files do not contain header
+echo "concat temp  *.csv to $CONCAT_FILE";
+find $TRAIN_DIR -type f -name '*.csv' -exec cat {} + >> $CONCAT_FILE
 
 concat_file_lines=$(wc -l < "$CONCAT_FILE")
 echo "Total lines of concat result is $concat_file_lines";
-
-echo "remove temporary files"
-rm -rf $DATA_DIR/*.new
-

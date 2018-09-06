@@ -77,7 +77,7 @@ $ psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f /Users/ha
 Here is command to generate:
 ```
 $ cd python
-$ python3 main.py define_concepts -o ../output -p 8
+$ python3 main.py define_concepts -o ../data -p 8
 # Total concepts: 6463
 # TOTAL DURATION: 1918 seconds ~ 31mins
 # total features: 948392 (not merged)
@@ -129,4 +129,18 @@ hadm_id, minutes_ago, conceptid, value
 ...
 ```
 
-* It takes 1min in average for exporting data of 50 admissions
+* It takes 1 min in average for exporting data of 50 admissions
+
+```
+2018-09-06 07:43:05,118 : INFO : DONE 34140/34140 admissions
+2018-09-06 07:43:05,121 : INFO : TOTAL DURATION: 111030.402759 seconds
+2018-09-06 07:43:05,126 : INFO : seconds/admissions: 3.252208633831283 seconds
+2018-09-06 07:43:08,456 : INFO : mean query times: 0.2832815412126538
+2018-09-06 07:43:08,457 : INFO : mean update times: 23.594490145049793
+```
+
+* run `concat_train_data.sh`:
+
+```
+Total Entry: 170,683,041
+```
