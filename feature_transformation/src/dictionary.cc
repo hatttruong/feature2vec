@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <map>
 #include <set>
+#include <ctime>
 #include "json/json.h"
 
 namespace feature2vec {
@@ -156,15 +157,6 @@ int32_t Dictionary::ndefinitions() const {
   return ndefinitions_;
 }
 
-// void Dictionary::countEvents(std::istream& ifs) {
-
-//   nevents_ = std::count(std::istreambuf_iterator<char>(ifs),
-//                         std::istreambuf_iterator<char>(), '\n') - 1;
-//   if (args_->verbose > 0) {
-//     std::cerr << "Number of events: " << nevents_ << std::endl;
-//   }
-// }
-
 bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) const {
   std::streambuf& sb = *in.rdbuf();
   int c;
@@ -194,9 +186,15 @@ void Dictionary::readFromFile(std::istream& in) {
 
   std::string::size_type sz;   // alias of size_t
   int32_t conceptid;
-  std::vector<std::string> v;
+  int32_t cur_hadm_id = -1;
+  int32_t prev_hadm_id = -1;
+  int32_t prev_hadm_pos = 0;
+  std::vector<std::string> v; // contain elements of one line
 
-  std::cerr << "\rStart readFromFile at: " << utils::currentDateTime() << std::endl;
+  const clock_t begin_time = clock();
+  std::cerr << "\nStart readFromFile at: " << utils::currentDateTime() << std::endl;
+
+  admissionPositions_.clear();
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
@@ -205,8 +203,25 @@ void Dictionary::readFromFile(std::istream& in) {
         std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
       }
 
+      cur_hadm_id = std::stoi(v[0], &sz);
+
+      // for the first event of admission
+      if (prev_hadm_id == -1) {
+        admissionPositions_.push_back(0);
+
+      } else if (cur_hadm_id != prev_hadm_id) {
+        // if this line is new admission
+        admissionPositions_.push_back(prev_hadm_pos);
+      }
+
+      // keep track information
+      prev_hadm_id = cur_hadm_id;
+      prev_hadm_pos = in.tellg();
+
       conceptid = std::stoi(v[2], &sz);
       add(conceptid, v[3]);
+
+      // print progress
       if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
         std::cerr << "\rRead " << nevents_  / 1000000 << "M events" << std::flush;
       }
@@ -214,13 +229,15 @@ void Dictionary::readFromFile(std::istream& in) {
   }
   std::cerr << std::endl;
   std::cerr << "End at: " << utils::currentDateTime() << std::endl;
+  std::cout << "Total durations: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
+  std::cout << "Total admissionPositions_: " << admissionPositions_.size() << std::endl;
 
   initSegments();
 
   nfeatures_ = features_.size();
 
   if (args_->verbose > 0) {
-    std::cerr << "Number of features: " << nfeatures_ << std::endl;
+    std::cerr << "\nNumber of features: " << nfeatures_ << std::endl;
     std::cerr << "Number of events: " << nevents_ << std::endl;
   }
 
@@ -268,8 +285,8 @@ int32_t Dictionary::find(const int32_t conceptid, const std::string& value) cons
       }
     }
     catch (std::exception& e) {
-      // std::cerr << "ERROR: conceptid=" << conceptid << ", value=" << value;
-      // std::cerr << ", what(): " << e.what() << std::endl;
+      std::cerr << "ERROR find(): conceptid=" << conceptid << ", value=" << value;
+      std::cerr << ", what(): " << e.what() << std::endl;
     }
 
   } else {
@@ -345,9 +362,28 @@ std::vector<int64_t> Dictionary::getCounts() const {
   return counts;
 }
 
+int64_t Dictionary::getAdmissionPosition(int32_t ith, int32_t totalThreads) const {
+  // calculate position to start
+  int32_t idx = ith * admissionPositions_.size() / totalThreads;
+
+  // DEBUG
+  // std::cerr << "Thread: " << ith;
+  // std::cerr << ", start at pos: " << admissionPositions_[idx];
+  // std::cerr << " of admission: " << idx << "th / " << admissionPositions_.size() << std::endl;
+  // DEBUG
+
+  return admissionPositions_[idx];
+}
+
+
 // read line by line, each line is a chartevent
 // read until finish an admission (train data is sorted by hadm_id, minutes_ago)
 // return: number of events
+// NOTE: because each thread will start to read input file at anywhere until
+// total events = epoch * nevents. So, whenever we reach the end of file, we
+// we have to reset to begining of file.
+// Assumption: all threads have the same reading rate, one thread will only
+// read file once.
 int32_t Dictionary::getEvents(std::istream & in,
                               std::vector<event_entry>& events,
                               std::minstd_rand & rng) const {
@@ -362,46 +398,64 @@ int32_t Dictionary::getEvents(std::istream & in,
   int32_t h;
   int32_t minutes_ago;
   int32_t pos = 0;
+
+  reset(in);
   events.clear();
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
-      new_hadm_id = std::stoi(v[0], &sz);
+      try {
+        new_hadm_id = std::stoi(v[0], &sz);
 
-      // for the first event of admission
-      if (cur_hadm_id == -1) {
-        cur_hadm_id = new_hadm_id;
+        // for the first event of admission
+        if (cur_hadm_id == -1) {
+          cur_hadm_id = new_hadm_id;
+        }
+
+        if (cur_hadm_id != new_hadm_id) {
+          // move cursor to begining of line
+          in.seekg(pos);
+          break;
+        }
+        // record the position
+        pos = in.tellg();
+
+        conceptid = std::stoi(v[2], &sz);
+        h = find(conceptid, v[3]);
+        if (h < 0) continue;
+
+        // TOBEREMOVE
+        // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+        // std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
+        nevents++;
+        minutes_ago = std::stoi(v[1], &sz);
+
+        // create event_entry object
+        event_entry ee;
+        ee.minutes_ago = minutes_ago;
+        ee.idx = feature2int_[h];
+        events.push_back(ee);
+
+      } catch (std::exception& e) {
+        std::cerr << "ERROR getEvents():" ;
+        std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+        std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
+        std::cerr << "what(): " << e.what() << std::endl;
       }
-
-      if (cur_hadm_id != new_hadm_id) {
-        // move cursor to begining of line
-        in.seekg(pos);
-        break;
-      }
-      // record the position
-      pos = in.tellg();
-
-      conceptid = std::stoi(v[2], &sz);
-      h = find(conceptid, v[3]);
-      if (h < 0) continue;
-
-      // TOBEREMOVE
-      // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
-      // std::cerr << ", conceptid=" << v[2] << ", value=" << v[3];
-      // std::cerr << ", fid=" << fid << std::endl;
-      nevents++;
-      minutes_ago = std::stoi(v[1], &sz);
-
-      // create event_entry object
-      event_entry ee;
-      ee.minutes_ago = minutes_ago;
-      ee.idx = feature2int_[h];
-      events.push_back(ee);
 
       if (nevents > MAX_EVENTS_SIZE) break;
     }
   }
   return nevents;
+}
+
+// reset to beginning of file when reading events of admission
+void Dictionary::reset(std::istream& in) const {
+  if (in.eof()) {
+    std::cerr << "reset to beginning" << std::endl;
+    in.clear();
+    in.seekg(std::streampos(0));
+  }
 }
 
 // get segments by index of feature value
@@ -470,6 +524,5 @@ void Dictionary::load(std::istream& in) {
   }
 
 }
-
 
 }

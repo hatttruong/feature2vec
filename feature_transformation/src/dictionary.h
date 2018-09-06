@@ -68,6 +68,9 @@ protected:
   // entry.id = unique id of (conceptid, value)
   std::vector<entry> features_;
 
+  // position of each admission in training file
+  std::vector<int64_t> admissionPositions_;
+
   int32_t size_;
   int32_t ndefinitions_;
   int32_t nfeatures_;
@@ -76,6 +79,7 @@ protected:
   int32_t find(const int32_t, const std::string&) const;
   void initDefinition();
   void initSegments();
+  void reset(std::istream&) const;
 
 public:
   explicit Dictionary(std::shared_ptr<Args>);
@@ -106,6 +110,8 @@ public:
   std::vector<int64_t> getCounts() const;
   void save(std::ostream&) const;
   void load(std::istream&);
+  int64_t getAdmissionPosition(int32_t, int32_t) const;
+
 };
 
 }

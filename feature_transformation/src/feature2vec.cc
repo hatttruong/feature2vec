@@ -29,7 +29,8 @@ void Feature2Vec::addInputVector(Vector& vec, int32_t ind) const {
 
 void Feature2Vec::trainThread(int32_t threadId) {
   std::ifstream ifs(args_->input);
-  utils::seek(ifs, threadId * utils::size(ifs) / args_->thread);
+  int64_t start_pos = dict_->getAdmissionPosition(threadId, args_->thread);
+  utils::seek(ifs, start_pos);
 
   Model model(input_, output_, args_, threadId);
   model.setTargetCounts(dict_->getCounts());

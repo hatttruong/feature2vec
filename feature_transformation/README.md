@@ -21,6 +21,11 @@ Generally, similar to **fastText** building on modern Mac OS and Linux distribut
 
 * (g++-4.7.2 or newer) or (clang-3.3 or newer)
 
+```
+sudo apt-get update
+sudo apt-get install g++
+```
+
 Compilation is carried out using a Makefile, so you will need to have a working **make**.
 
 For more detail, please read at [Requirements of FastText](https://github.com/facebookresearch/fastText/blob/master/README.md#requirements)
@@ -71,8 +76,13 @@ $ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/da
 ```
 $ ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/skipgram_ce_nm -epoch 5 -verbose 2 -saveOutput
 
-# Start Reading:
-# End Reading:
+Number of parsed feature definitions: 6380
+Number of feature values: 189163
+Number of feature segments: 759229
+
+Start at: 2018-09-06.10:40:52
+Read 283M events
+End at: 2018-09-06.14:01:52. Duration: ~3h 20 mins
 ```
 
 ### Print feature vector
