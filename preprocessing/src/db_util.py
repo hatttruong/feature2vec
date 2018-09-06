@@ -56,9 +56,9 @@ def get_events_by_admission(admission_id, event_types=['chartevents']):
         if t == 'chartevents':
             queries.append(
                 "WITH chartevents_per_ad AS ( \
-                    SELECT hadm_id, charttime, itemid, value, valuenum \
+                    SELECT hadm_id, charttime, itemid, jvn_value as value \
                     FROM chartevents \
-                    WHERE hadm_id=%s AND value IS NOT NULL \
+                    WHERE hadm_id=%s AND jvn_value IS NOT NULL \
                     ORDER BY charttime ASC) \
                 SELECT hadm_id, (DATE_PART('day', \
                     C.charttime::timestamp - M.min_charttime::timestamp) * 24 + \

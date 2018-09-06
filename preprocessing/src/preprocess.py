@@ -1,52 +1,4 @@
 """
-we choose 5 category featues, 5 numeric features, static features as below:
-
-5 category features:
-      212 220048  Heart Rhythm ==>  5,325,829 data points
-      161 224650  Ectopy Type 1 ==> 5,083,411
-      162 226479  Ectopy Type 2 ==> 26,338
-      159 224651  Ectopy Frequency 1 ==>  2,864,431
-      160 226480  Ectopy Frequency 2 ==> 19,840
-
-5 numeric features:
-              211 220045  Heart Rate ==>  7,923,714
-              814 220228  Hemoglobin ==>  324,335
-              833 RBC ==> 175,279
-              1542 220546 861 4200 1127 WBC(4 - 11, 000) ==>  626,353
-              828 3789        Platelet  (150-440) ==>  198,713
-    static features: v_first_admission
-        patients.gender,
-        admissions.marital_status
-
-        ROUND( (CAST(EXTRACT(epoch FROM a.admittime - p.dob)/(60*60*24*365.242) AS numeric)), 4) AS admission_age
-        los_icu
-
-        ###############################################################################
-
-Preprocessing including following steps:
-    1. Grouping:
-        1.1 find similar item names: using fuzzy, or word embedding.
-            note: one group must contain items belonging to the same "linksto"
-            result: group of similar item ids in dictionary
-            example: {group_index:
-                [(itemid, label, abbreviation), (itemid, name, abbreviation),...]}
-            output: similar_items_step1
-        1.2 compare distribution:
-            using kullback-leiber to compute similarity between each pair in a group
-            define threshold
-            output: similar_items_step2
-        1.3 review manually
-            output: similar_items_final
-
-    2. Define new features:
-        - numeric features: based on min, max and step
-        - category features
-
-    3. Prepare training set
-        For each admision, get all chartevents and order by time
-            Create an array for each minute from admission time to discharge time +
-            Attach chartevent to each
-
 Attributes:
     logger (TYPE): Description
     STATIC_FEATURES (TYPE): Description
@@ -68,30 +20,17 @@ import multiprocessing
 
 from src.pyhash import *
 from src.db_util import *
+from src.connect_db import *
 
 logger = logging.getLogger(__name__)
 
+
+CONCEPT_DEFINITION_FILENAME = 'concept_definition.json'
 
 STATIC_FEATURES = [('gender', 300001, False),
                    ('marital_status', 300002, False),
                    ('admission_age', 300003, True),
                    ('los_icu_h', 300004, True)]
-
-# ITEM_IDS = '212 220048 161 224650 162 226479 159 224651 160 226480 '
-# ITEM_IDS += '211 220045 814 220228 833 1542 220546 861 4200 1127 828 3789 '
-# ITEM_IDS = ITEM_IDS.split()
-
-# GROUP_ITEMS = [
-#     '212 220048  Heart Rhythm',
-#     '161 224650  Ectopy Type 1',
-#     '162 226479  Ectopy Type 2',
-#     '159 224651  Ectopy Frequency 1',
-#     '160 226480  Ectopy Frequency 2',
-#     '211 220045  Heart Rate',
-#     '814 220228  Hemoglobin',
-#     '833 RBC',
-#     '1542 220546 861 4200 1127 WBC',
-#     '828 3789        Platelet']
 
 
 def export_dict_to_json(dict_data, file_path):
@@ -402,8 +341,8 @@ def define_concepts(output_dir, processes=8):
             count_values += 1
 
         logger.debug('conceptid=%s, number values=%s, number segments=%s',
-                    concept_obj['conceptid'], len(concept_obj['data']),
-                    len(concept_obj['segments']))
+                     concept_obj['conceptid'], len(concept_obj['data']),
+                     len(concept_obj['segments']))
 
     logger.info('Total Values: %s', count_values)
     logger.info('Total Segments: %s', count_segments)
@@ -419,7 +358,69 @@ def define_concepts(output_dir, processes=8):
     logger.info('export concept definition to file')
     data = {'item2concept': item2concepts, 'definition': concepts}
     export_dict_to_json(data,
-                        os.path.join(output_dir, 'concept_definition.json'))
+                        os.path.join(output_dir, CONCEPT_DEFINITION_FILENAME))
+
+    # update jvn_value in chartevents
+    logger.info('Start update_chartevents_value')
+    update_chartevents_value(concept_dir=output_dir)
+    logger.info('Done update_chartevents_value')
+    return
+
+def update_chartevents_value(concept_dir='../data'):
+    """
+    Numeric features:
+        update jvn_value with value * multiply
+
+        example:
+        SELECT (floor(10.56 * 10))::int AS jvn_value
+
+    Category feature:
+        copy value to jvn_value
+
+    TODO: after merge item, use condition:
+        itemid IN (SELECT itemid FROM jvn_item_mapping WHERE conceptid=%s)
+    """
+    logger.info('Update value of chartevents based on %s',
+                CONCEPT_DEFINITION_FILENAME)
+    concepts_def, _ = load_concept_definition(
+        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
+
+    query = ""
+    durations = list()
+    for index, conceptid in enumerate(concepts_def.keys()):
+        logger.debug('update conceptid=%s', conceptid)
+        start = datetime.now()
+
+        concept_condition = " itemid = %s " % conceptid
+        # TODO
+        # concept_condition = " itemid IN (SELECT itemid FROM jvn_item_mapping \
+        #     WHERE conceptid = %s) " % conceptid
+
+        # numeric concept
+        if concepts_def[conceptid]['type'] == 0:
+            # multiply valuenum with concepts_def[conceptid]['multiply'])
+            # then convert to int
+            query = "UPDATE chartevents \
+                SET jvn_value = (floor(valuenum * %s))::int \
+                WHERE valuenum IS NOT NULL AND %s" % (
+                    concepts_def[conceptid]['multiply'], concept_condition)
+            execute_non_query(query)
+        else:
+            # category concept: copy value from 'value' column
+            query = "UPDATE chartevents \
+                SET jvn_value = value \
+                WHERE %s" % concept_condition
+            execute_non_query(query)
+
+        durations.append((datetime.now() - start).total_seconds())
+
+        if (index + 1) % 10 == 0:
+            logger.info(
+                'Done: %s/%s concepts, avg duration: %.2f seconds/concept',
+                index + 1, len(concepts_def), np.mean(durations))
+
+    logger.info('DURATION (update values): %s seconds',
+        np.sum(durations))
 
 
 def load_concept_definition(file_path):
@@ -445,52 +446,17 @@ def load_concept_definition(file_path):
         concepts[conceptid]['multiply'] = f['multiply']
         concepts[conceptid]['data'] = dict()
         for v in f['data']:
-            concepts[conceptid]['data'][v['value']] = -1  # v['id']
+            concepts[conceptid]['data'][v['value']] = v['id']
 
         concepts[conceptid]['segments'] = dict()
-        for v in f['segments']:
-            concepts[conceptid]['segments'][v['value']] = -1  # v['id']
+        for s in f['segments']:
+            concepts[conceptid]['segments'][s['value']] = s['id']
 
     item2concept = dict()
     for c in data['item2concept']:
         item2concept[c['itemid']] = c['conceptid']
 
     return concepts, item2concept
-
-
-def update_value(df, concepts_def):
-    """Summary
-
-    Args:
-        df (dataframe): Description
-        concepts_def (dict): Description
-
-    Returns:
-        TYPE: Description
-
-    """
-    for index, row in df.iterrows():
-        if pd.isnull(row['value']):
-            continue
-
-        conceptid = int(row['conceptid'])
-        value = row['value']
-        if conceptid in concepts_def.keys():
-            if concepts_def[conceptid]['type'] == 0:
-                # try to round it
-                if check_is_number(value):
-                    value = int(float(value) *
-                                concepts_def[conceptid]['multiply'])
-                else:
-                    value = None
-            else:
-                value = str(value).strip()
-
-            df.iloc[index, df.columns.get_loc('value')] = value
-        else:
-            logger.error('cannot find conceptid=%s, row=%s', conceptid, row)
-
-    return df
 
 
 def create_item2concept():
@@ -511,7 +477,7 @@ def create_item2concept():
     return item2concept
 
 
-def create_train_dataset(export_dir, processes):
+def create_train_dataset(export_dir, processes, concept_dir='../data'):
     """
     Use multiprocessing to get data from postgres
     """
@@ -532,7 +498,7 @@ def create_train_dataset(export_dir, processes):
     # prepare arguments
     list_args = []
     concepts_def, _ = load_concept_definition(
-        '../output/concept_definition.json')
+        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
         if admission_id in exported_admissions:
@@ -614,8 +580,10 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     logger.debug('Query time: %s seconds', d)
 
     start = datetime.now()
-    # TODO: update_value takes long time, need to improve
-    df_events = update_value(df_events, concepts_def)
+
+    # IMPORTANT: update_value takes long time, update values directly on
+    # database by run update_chartevents_value function
+    # df_events = update_value(df_events, concepts_def)
 
     # drop rows which have 'value' Empty
     # axis=0: drop rows which contain missing values.

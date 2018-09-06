@@ -142,31 +142,56 @@ def execute_non_query(query, has_return=False):
     """
     return_id = None
     try:
-
-        with SSHTunnelForwarder(
+        if Configer.use_ssh:
+            with SSHTunnelForwarder(
                 (IP_ADDRESS, PORT),
                 ssh_username=SSH_USERNAME,
                 ssh_password=SSH_PASSWORD,
                 remote_bind_address=('localhost', 5432)) as server:
 
-            server.start()
-            logger.debug('server connected')
-            logger.debug('server.local_bind_port: %s', server.local_bind_port)
+                server.start()
+                logger.debug('server connected')
+                logger.debug('server.local_bind_port: %s', server.local_bind_port)
 
+                params = {
+                    'database': DB_NAME,
+                    'user': DB_USERNAME,
+                    'password': DB_PASSWORD,
+                    'host': 'localhost',
+                    'port': server.local_bind_port
+                }
+
+                conn = psycopg2.connect(**params)
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                logger.debug('database %s connected', params)
+
+                cursor.execute('set search_path to %s' % SEARCH_PATH)
+                logger.debug('set search_path to %s' % SEARCH_PATH)
+
+                cursor.execute(query)
+                conn.commit()
+
+                if has_return:
+                    # get return ID
+                    for row in cursor:
+                        return_id = row[0]
+                        break
+        else:
             params = {
-                'database': DB_NAME,
-                'user': DB_USERNAME,
-                'password': DB_PASSWORD,
-                'host': 'localhost',
-                'port': server.local_bind_port
+                'database': Configer.db_name,
+                'user': Configer.db_username,
+                'password': Configer.db_password,
+                'host': 'localhost'
             }
-
+            # use our connection values to establish a connection
             conn = psycopg2.connect(**params)
+
+            # create a psycopg2 cursor that can execute queries
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             logger.debug('database %s connected', params)
 
-            cursor.execute('set search_path to %s' % SEARCH_PATH)
-            logger.debug('set search_path to %s' % SEARCH_PATH)
+            cursor.execute('set search_path to %s' % Configer.search_path)
+            logger.debug('set search_path to %s' % Configer.search_path)
 
             cursor.execute(query)
             conn.commit()
@@ -176,6 +201,7 @@ def execute_non_query(query, has_return=False):
                 for row in cursor:
                     return_id = row[0]
                     break
+
 
     except Exception as e:
         logger.error('Connection Failed')
