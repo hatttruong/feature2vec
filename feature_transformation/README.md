@@ -65,6 +65,23 @@ There are two files we need to prepare for training **feature2vec**: `concept_de
 
 #### 2. Train features
 
+* Calculate the average number of events happening at the same time of each admission:
+
+```
+WITH A AS (select hadm_id, charttime, count(1) as countEvents from chartevents group by hadm_id, charttime)
+SELECT MIN(countEvents), MAX(countEvents)
+    , percentile_disc(0.25) WITHIN GROUP (ORDER BY countEvents)
+    , percentile_disc(0.5) WITHIN GROUP (ORDER BY countEvents)
+    , percentile_disc(0.75) WITHIN GROUP (ORDER BY countEvents)
+FROM A
+```
+
+Here is the result:
+
+| min | max | percentile_25th | percentile_50th | percentile_75th |
+|-----|-----|-----------------|-----------------|-----------------|
+|   1 | 391 |               7 |              15 |              30 |
+
 * Using CBOW
 
 ```

@@ -165,43 +165,86 @@ void Feature2Vec::cbow(Model& model, real lr,
 }
 
 
-// events: vector<event_entry> which order by minutes_ago
+// events: vector<event_entry> which is sorted by minutes_ago ASC
+//         static events have minutes_ago = -1
 // Model::update(const std::vector<int32_t>& input, int32_t target, real lr)
-// In Skipgram model, input is current events (vector of segments)
-// target is index of bounded event
-// TODO: mutiply boundary with a constant because there are many events happen
+// In Skipgram model:
+//    input is current events (vector of segments)
+//    target is index of bounded event
+// Modification:
+// (1) mutiply boundary with a constant because there are many events happen
 // at the same time
+// (2) seperate updating model between static and non-static events
 void Feature2Vec::skipgram(Model& model, real lr,
                            const std::vector<event_entry>& events) {
-  std::uniform_int_distribution<> uniform(1, args_->ws);
-  int32_t boundary;
-  for (int32_t i = 0; i < events.size(); i++) {
+  std::uniform_int_distribution<> uniform(1, args_->ws * args_->multiEvents);
 
-    // std::cerr << "minutes_ago=" << events[i].minutes_ago << ", index="  << events[i].idx << "\n";
+  // specify number of static features
+  int32_t nb_static = 0;
+  for (int32_t i = args_->maxStatic - 1; i >= 0; i--) {
+    if (events[i].minutes_ago == -1) {
+      nb_static = i + 1;
+      break;
+    }
+  }
+
+  std::uniform_int_distribution<> uniform_st(0, nb_static - 1);
+  std::uniform_int_distribution<> uniform_nst(nb_static, events.size() - 1);
+
+  // update static features with non-static feature context
+  int32_t c_idx;
+  for (int32_t i = 0; i < nb_static; i++) {
     const std::vector<int32_t>& nsegments = dict_->getSegments(events[i].idx);
 
-    boundary  = uniform(model.rng);
+    // update with context of a half number of non-static features
+    for (int32_t j = 0; j < (events.size() - nb_static) * args_->ps; j++) {
+      c_idx = uniform_nst(model.rng);
+      model.update(nsegments, events[c_idx].idx, lr);
+    }
+  }
+
+  // update non-static features with static and other non-static features in boundary
+  int32_t boundary;
+  int32_t below_mins_ago;
+  int32_t above_mins_ago;
+  for (int32_t i = nb_static; i < events.size(); i++) {
+    const std::vector<int32_t>& nsegments = dict_->getSegments(events[i].idx);
+
+    // STATIC CONTEXT
+    // update with context of a half number of static features
+    for (int32_t j = 0; j < nb_static * args_->ps; j++) {
+      c_idx = uniform_st(model.rng);
+      model.update(nsegments, events[c_idx].idx, lr);
+    }
+
+    // NONE-STATIC context
+    below_mins_ago = events[i].minutes_ago - args_->ws;
+    above_mins_ago = events[i].minutes_ago + args_->ws;
+    boundary = uniform(model.rng);
     for (int32_t c = - boundary; c <= + boundary; c++) {
-      if (c != 0 && i + c >= 0 && i + c < events.size()) {
-        // std::cerr << "update with ith="  << events[i + c].idx << "\n";
-        model.update(nsegments, events[i + c].idx, lr);
+      if (c != 0 && i + c >= nb_static && i + c < events.size()) {
+
+        if (events[i + c].minutes_ago >= below_mins_ago
+            && events[i + c].minutes_ago <= above_mins_ago) {
+          model.update(nsegments, events[i + c].idx, lr);
+        }
       }
     }
   }
 }
 
-void Feature2Vec::getFeatureVector(Vector& vec, const int32_t idx) const {
+void Feature2Vec::getFeatureVector(Vector & vec, const int32_t idx) const {
   const std::vector<int32_t>& nsegments = dict_->getSegments(idx);
   sumAndNormalizeNSegments(vec, nsegments);
 }
 
-void Feature2Vec::getFeatureVector(Vector& vec, const int32_t conceptid,
-                                   const std::string& value) const {
+void Feature2Vec::getFeatureVector(Vector & vec, const int32_t conceptid,
+                                   const std::string & value) const {
   const std::vector<int32_t>& nsegments = dict_->getSegments(conceptid, value);
   sumAndNormalizeNSegments(vec, nsegments);
 }
 
-void Feature2Vec::sumAndNormalizeNSegments(Vector& vec,
+void Feature2Vec::sumAndNormalizeNSegments(Vector & vec,
     const std::vector<int32_t>& nsegments) const {
   vec.zero();
   for (int i = 0; i < nsegments.size(); i++) {
@@ -231,7 +274,7 @@ void Feature2Vec::saveModel(const std::string path) {
   ofs.close();
 }
 
-bool Feature2Vec::checkModel(std::istream& in) {
+bool Feature2Vec::checkModel(std::istream & in) {
   int32_t magic;
   in.read((char*) & (magic), sizeof(int32_t));
   if (magic != FEATURE2VEC_FILEFORMAT_MAGIC_INT32) {
@@ -244,7 +287,7 @@ bool Feature2Vec::checkModel(std::istream& in) {
   return true;
 }
 
-void Feature2Vec::signModel(std::ostream& out) {
+void Feature2Vec::signModel(std::ostream & out) {
   const int32_t magic = FEATURE2VEC_FILEFORMAT_MAGIC_INT32;
   const int32_t version = FEATURE2VEC_VERSION;
   out.write((char*) & (magic), sizeof(int32_t));
@@ -286,7 +329,7 @@ void Feature2Vec::saveOutput() {
   ofs.close();
 }
 
-void Feature2Vec::loadModel(const std::string& filename) {
+void Feature2Vec::loadModel(const std::string & filename) {
   std::ifstream ifs(filename, std::ifstream::binary);
   if (!ifs.is_open()) {
     throw std::invalid_argument(filename + " cannot be opened for loading!");
@@ -298,7 +341,7 @@ void Feature2Vec::loadModel(const std::string& filename) {
   ifs.close();
 }
 
-void Feature2Vec::loadModel(std::istream& in) {
+void Feature2Vec::loadModel(std::istream & in) {
   args_ = std::make_shared<Args>();
   input_ = std::make_shared<Matrix>();
   output_ = std::make_shared<Matrix>();

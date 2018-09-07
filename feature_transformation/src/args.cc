@@ -19,7 +19,10 @@ namespace feature2vec {
 Args::Args() {
   lr = 0.05;
   dim = 100;
-  ws = 60;  // in minutes
+  ws = 60;            // context size of non-static event in minutes
+  multiEvents =  30;  // average number of events happening at the same time
+  maxStatic = 4;      // max number of static events
+  ps = 0.5;           // context size of static event in faction of 1
   epoch = 5;
   minCount = 5;
   neg = 5;
@@ -96,6 +99,12 @@ void Args::parseArgs(const std::vector<std::string>& args) {
         dim = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-ws") {
         ws = std::stoi(args.at(ai + 1));
+      } else if (args[ai] == "-multiEvents") {
+        multiEvents = std::stoi(args.at(ai + 1));
+      } else if (args[ai] == "-maxStatic") {
+        maxStatic = std::stoi(args.at(ai + 1));
+      } else if (args[ai] == "-ps") {
+        ps = std::stof(args.at(ai + 1));
       } else if (args[ai] == "-epoch") {
         epoch = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-minCount") {
@@ -177,7 +186,10 @@ void Args::printTrainingHelp() {
       << "  -lr                 learning rate [" << lr << "]\n"
       << "  -lrUpdateRate       change the rate of updates for the learning rate [" << lrUpdateRate << "]\n"
       << "  -dim                size of feature vectors [" << dim << "]\n"
-      << "  -ws                 size of the context window [" << ws << "]\n"
+      << "  -ws                 context size of non-static event in minutes [" << ws << "]\n"
+      << "  -multiEvents        average number of events happening at the same time [" << multiEvents << "]\n"
+      << "  -maxStatic          max number of static events [" << maxStatic << "]\n"
+      << "  -ps                 context size of static event in in faction of 1 [" << ps << "]\n"
       << "  -epoch              number of epochs [" << epoch << "]\n"
       << "  -neg                number of negatives sampled [" << neg << "]\n"
       << "  -loss               loss function {ns, hs, softmax} [" << lossToString(loss) << "]\n"
@@ -190,6 +202,9 @@ void Args::printTrainingHelp() {
 void Args::save(std::ostream& out) {
   out.write((char*) & (dim), sizeof(int));
   out.write((char*) & (ws), sizeof(int));
+  out.write((char*) & (multiEvents), sizeof(int));
+  out.write((char*) & (maxStatic), sizeof(int));
+  out.write((char*) & (ps), sizeof(double));
   out.write((char*) & (epoch), sizeof(int));
   out.write((char*) & (minCount), sizeof(int));
   out.write((char*) & (neg), sizeof(int));
@@ -207,6 +222,9 @@ void Args::save(std::ostream& out) {
 void Args::load(std::istream& in) {
   in.read((char*) & (dim), sizeof(int));
   in.read((char*) & (ws), sizeof(int));
+  in.read((char*) & (multiEvents), sizeof(int));
+  in.read((char*) & (maxStatic), sizeof(int));
+  in.read((char*) & (ps), sizeof(double));
   in.read((char*) & (epoch), sizeof(int));
   in.read((char*) & (minCount), sizeof(int));
   in.read((char*) & (neg), sizeof(int));
@@ -227,6 +245,9 @@ void Args::load(std::istream& in) {
 void Args::dump(std::ostream& out) const {
   out << "dim" << " " << dim << std::endl;
   out << "ws" << " " << ws << std::endl;
+  out << "multiEvents" << " " << multiEvents << std::endl;
+  out << "maxStatic" << " " << maxStatic << std::endl;
+  out << "ps" << " " << ws << std::endl;
   out << "epoch" << " " << epoch << std::endl;
   out << "minCount" << " " << minCount << std::endl;
   out << "neg" << " " << neg << std::endl;

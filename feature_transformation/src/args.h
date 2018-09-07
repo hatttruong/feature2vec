@@ -34,6 +34,9 @@ public:
   int lrUpdateRate;
   int dim;
   int ws;
+  int multiEvents;
+  int maxStatic;
+  double ps;
   int epoch;
   int minCount;
   int neg;
