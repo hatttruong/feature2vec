@@ -100,6 +100,9 @@ Number of feature segments: 759229
 Start at: 2018-09-06.10:40:52
 Read 283M events
 End at: 2018-09-06.14:01:52. Duration: ~3h 20 mins
+
+#### TEST tp7 server ####
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm -epoch 5 -verbose 2 -saveOutput
 ```
 
 ### Print feature vector

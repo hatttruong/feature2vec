@@ -42,6 +42,13 @@ const std::string currentDateTime() {
   return buf;
 }
 
+void log(std::string message)
+{
+  std::ofstream logfile;
+  logfile.open("log.txt", std::ios_base::app);
+  logfile << currentDateTime() << ": " << message << std::endl;
+}
+
 }
 
 }

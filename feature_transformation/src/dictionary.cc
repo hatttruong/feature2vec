@@ -169,12 +169,22 @@ bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) cons
       temp_word.clear();
 
       if (c == '\n') {
+        // remove because sungetc = decrease current position
+        // it will make "readFromFile" run forever
+        // sb.sungetc();
         return true;
       }
     } else {
       temp_word.push_back(c);
     }
   }
+  utils::log("INFO : Dictionary::readFeature: reach EOF");
+  // CANNOT REMOVE this trigger, because it will make curser is EOF and make
+  // "reset" event of getEvents work.
+  // Each thread will read dataset n epoch times, so we have to reset cursor to
+  // to beginning of file until reaching n times.
+  // trigger eofbit
+  in.get();
   return false;
 }
 
@@ -183,7 +193,7 @@ bool Dictionary::readFeature(std::istream& in, std::vector<std::string>& v) cons
  * and features2int_
  */
 void Dictionary::readFromFile(std::istream& in) {
-
+  utils::log("INFO : Dictionary::readFromFile: start");
   std::string::size_type sz;   // alias of size_t
   int32_t conceptid;
   int32_t cur_hadm_id = -1;
@@ -245,6 +255,8 @@ void Dictionary::readFromFile(std::istream& in) {
     throw std::invalid_argument(
       "Empty vocabulary. Try a smaller -minCount value.");
   }
+  utils::log("INFO : Dictionary::readFromFile: done");
+
 }
 
 void Dictionary::add(const int32_t conceptid, const std::string& value) {
@@ -452,7 +464,7 @@ int32_t Dictionary::getEvents(std::istream & in,
 // reset to beginning of file when reading events of admission
 void Dictionary::reset(std::istream& in) const {
   if (in.eof()) {
-    std::cerr << "reset to beginning" << std::endl;
+    utils::log("INFO : Dictionary::reset: reset to beginning");
     in.clear();
     in.seekg(std::streampos(0));
   }

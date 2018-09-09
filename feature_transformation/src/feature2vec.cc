@@ -28,6 +28,8 @@ void Feature2Vec::addInputVector(Vector& vec, int32_t ind) const {
 }
 
 void Feature2Vec::trainThread(int32_t threadId) {
+  utils::log("INFO : Feature2Vec::trainThread: start thread "
+             + std::to_string(threadId));
   std::ifstream ifs(args_->input);
   int64_t start_pos = dict_->getAdmissionPosition(threadId, args_->thread);
   utils::seek(ifs, start_pos);
@@ -41,11 +43,17 @@ void Feature2Vec::trainThread(int32_t threadId) {
   while (eventCount_ < args_->epoch * nevents) {
     real progress = real(eventCount_) / (args_->epoch * nevents);
     real lr = args_->lr * (1.0 - progress);
+    localEventCount += dict_->getEvents(ifs, events, model.rng);
+    if (localEventCount <= 0) {
+      utils::log("WARN : Feature2Vec::trainThread: Total events: "
+                 + std::to_string(eventCount_ + localEventCount)
+                 + ", localEventCount: " + std::to_string(localEventCount));
+      break;
+    }
+
     if (args_->model == model_name::cbow) {
-      localEventCount += dict_->getEvents(ifs, events, model.rng);
       cbow(model, lr, events);
     } else if (args_->model == model_name::sg) {
-      localEventCount += dict_->getEvents(ifs, events, model.rng);
       skipgram(model, lr, events);
     }
     if (localEventCount > args_->lrUpdateRate) {
@@ -58,9 +66,14 @@ void Feature2Vec::trainThread(int32_t threadId) {
   if (threadId == 0)
     loss_ = model.getLoss();
   ifs.close();
+
+  utils::log("INFO : Feature2Vec::trainThread: done thread "
+             + std::to_string(threadId));
 }
 
 void Feature2Vec::train(const Args args) {
+  utils::log("INFO : Feature2Vec::train: START!!!!");
+
   args_ = std::make_shared<Args>(args);
   dict_ = std::make_shared<Dictionary>(args_);
 
@@ -182,7 +195,7 @@ void Feature2Vec::skipgram(Model& model, real lr,
   // specify number of static features
   int32_t nb_static = 0;
   for (int32_t i = args_->maxStatic - 1; i >= 0; i--) {
-    if (events[i].minutes_ago == -1) {
+    if (i < events.size() && events[i].minutes_ago == -1) {
       nb_static = i + 1;
       break;
     }
