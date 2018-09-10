@@ -31,19 +31,20 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--process', default=2, type=int,
                         help='number of process')
 
+    parser.add_argument(
+        '-cd', '--concept_dir', default='../data',
+        help='directory to store concept definition')
+
     # options for create train data
     parser.add_argument(
         '-ed', '--export_dir',
-        help='directory to store train data')
-
-    # options for definefeatures
-    parser.add_argument(
-        '-o', '--output_dir',
-        help='directory to store feature definition')
+        help='directory to store train data (options for create train data)')
 
     args = parser.parse_args()
     if args.action == 'create_train_dataset':
         create_train_dataset(export_dir=args.export_dir,
-                             processes=args.process)
+                             processes=args.process,
+                             concept_dir=args.concept_dir)
     elif args.action == 'define_concepts':
-        define_concepts(output_dir=args.output_dir, processes=args.process)
+        define_concepts(output_dir=args.concept_dir,
+                        processes=args.process)

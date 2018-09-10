@@ -145,6 +145,50 @@ def check_is_number(s):
         return False
 
 
+def create_concept_object(conceptid, name, is_number, values):
+    concept_obj = dict()
+    concept_obj['conceptid'] = conceptid
+    concept_obj['type'] = 0 if is_number else 1
+    concept_obj['segments'] = list()
+    concept_obj['hashmaps'] = list()
+
+    min_value = None
+    max_value = None
+    multiply = None
+    logger.debug('feature: %s, is number: %s, total raw values: %s',
+                 name, is_number, len(values))
+    unique_values = list()
+    if is_number:
+        # round up age and los_icu_h
+        values = [int(v) for v in values if check_is_number(v)]
+        unique_values, min_value, max_value, seg_values, multiply = compute_min_max(
+            values)
+        logger.debug(
+            'min_value=%s, max_value=%s, len(seg_values)=%s',
+            min_value, max_value, len(seg_values))
+        for s in seg_values:
+            concept_obj['segments'].append({'value': s})
+
+    else:
+        min_value = -1
+        max_value = -1
+        multiply = -1
+        values = [v.strip() for v in set(values) if len(v.strip()) > 0]
+        for v in values:
+            concept_obj['hashmaps'].append({'value': v, 'hash': hash(v)})
+            unique_values.append(hash(v))
+
+    concept_obj['min_value'] = min_value
+    concept_obj['max_value'] = max_value
+    concept_obj['multiply'] = multiply
+    concept_obj['data'] = list()
+    logger.debug('number of unique values: %s', len(unique_values))
+    for v in unique_values:
+        concept_obj['data'].append({'value': v})
+
+    return concept_obj
+
+
 def define_feature_process(conceptid, label, linksto, q_log):
     """Summary
 
@@ -158,10 +202,6 @@ def define_feature_process(conceptid, label, linksto, q_log):
         TYPE: Description
     """
     start = datetime.now()
-    concept_obj = dict()
-    concept_obj['conceptid'] = conceptid
-    concept_obj['segments'] = list()
-
     logger.debug('load values of conceptid=%s, label=%s',
                  conceptid, label)
     df = load_values_of_concept(conceptid, linksto)
@@ -172,74 +212,74 @@ def define_feature_process(conceptid, label, linksto, q_log):
         q_log.put((None, duration))
         return
 
-    unique_values = list()
-    is_number = None
-    min_value = None
-    max_value = None
-    multiply = None
+    values = list()
     if df.isnull().valuenum.sum() <= df.shape[0] * 0.05:
-        # handle numeric feature
         is_number = True
 
         # valuenum contained NaN
         df = df[~df['valuenum'].isnull()]
-        temp_values = df.valuenum.tolist()
-        try:
-            unique_values, min_value, max_value, seg_values, multiply = compute_min_max(
-                temp_values)
-        except Exception as e:
-            logger.error('@compute_min_max: conceptid=%s', conceptid)
-            raise
-        logger.debug(
-            'min_value=%s, max_value=%s, multiply=%s, len(seg_values)=%s',
-            min_value, max_value, multiply, len(seg_values))
-        for s in seg_values:
-            concept_obj['segments'].append({'value': s})
+        values = df.valuenum.tolist()
     else:
         # handle category feature
         is_number = False
-        min_value = -1
-        max_value = -1
-        multiply = -1
-        temp_values = set(df.value.tolist())
-        for v in temp_values:
-            v = v.strip()
-            if len(v) > 0:
-                unique_values.append(v)
+        values = df.value.tolist()
 
-    logger.debug('number of values: %s', len(unique_values))
-    concept_obj['type'] = 0 if is_number else 1
-    concept_obj['min_value'] = min_value
-    concept_obj['max_value'] = max_value
-    concept_obj['multiply'] = multiply
-    concept_obj['data'] = list()
-    for v in unique_values:
-        concept_obj['data'].append({'value': v})
+    concept_obj = create_concept_object(conceptid, label, is_number, values)
 
     duration = (datetime.now() - start).total_seconds()
     q_log.put((concept_obj, duration))
+
     size = q_log.qsize()
-    if size % 50 == 0:
+    if size % 100 == 0:
         logger.info('*********DONE %s CONCEPTS*********', size)
 
 
 def define_concepts(output_dir, processes=8):
     """
-    features including all items which links to chartevents, outputevents,
-    inputevents_cv, inputevents_mv
+    features including:
+        static features:
+            v_first_admission.gender,
+            v_first_admission.marital_status
+            v_first_admission.admission_age
+            v_first_admission.los_icu_h
+        non-static features: all items which links to chartevents, outputevents,
+            inputevents_cv, inputevents_mv. Currently, we ONLY links to chartevents.
 
-    Create new index for each segments of features
+    category features' value will be hashed to integer
+    assign unique index for each value of each concepts and for each segments of numeric features
 
     Args:
         output_dir (TYPE): Description
         processes (int, optional): Description
 
     """
-    logger.info('Start define_concepts func')
+    logger.info('START define_concepts func')
 
     concepts = list()
+
+    '''
+    define static features
+    '''
+    start = datetime.now()
+    df_admissions = get_admissions()
+    for name, conceptid, is_number in STATIC_FEATURES:
+        values = df_admissions[name].tolist()
+        values = [v for v in values if v is not None]
+        concept_obj = create_concept_object(conceptid, name, is_number,
+                                            values)
+        concepts.append(concept_obj)
+
+    logger.info('Total concepts: %s', len(concepts))
+    logger.info('TOTAL DURATION (static features): %s seconds',
+                (datetime.now() - start).total_seconds())
+
+    '''
+    define non-static features
+    '''
+    start = datetime.now()
     df_concepts = load_concepts()
-    logger.info('Total concepts: %s', df_concepts.shape[0])
+    logger.info('TOTAL DURATION (load non-static concepts): %s seconds',
+                (datetime.now() - start).total_seconds())
 
     # prepare arguments
     m = multiprocessing.Manager()
@@ -279,53 +319,6 @@ def define_concepts(output_dir, processes=8):
             # Check there are no outstanding tasks
             assert not pool._cache, 'cache = %r' % pool._cache
 
-    '''
-    define static features: v_first_admission.gender,
-       v_first_admission.marital_status
-       v_first_admission.admission_age
-       v_first_admission.los_icu_h
-    '''
-    df_admissions = get_admissions()
-    for name, conceptid, is_number in STATIC_FEATURES:
-        concept_obj = dict()
-        concept_obj['conceptid'] = conceptid
-        concept_obj['type'] = 0 if is_number else 1
-        concept_obj['segments'] = list()
-
-        values = df_admissions[name].unique()
-        values = [v for v in values if v is not None]
-        min_value = None
-        max_value = None
-        multiply = None
-        logger.info('feature: %s, is number: %s, total raw values: %s',
-                    name, is_number, len(values))
-        if is_number:
-            multiply = 1
-            # round up age and los_icu_h
-            values = [int(v) for v in values if check_is_number(v)]
-            _, min_value, max_value, seg_values, _ = compute_min_max(
-                values)
-            logger.info(
-                'min_value=%s, max_value=%s, len(seg_values)=%s',
-                min_value, max_value, len(seg_values))
-            for s in seg_values:
-                concept_obj['segments'].append({'value': s})
-        else:
-            min_value = -1
-            max_value = -1
-            multiply = -1
-
-        concept_obj['min_value'] = min_value
-        concept_obj['max_value'] = max_value
-        concept_obj['multiply'] = multiply
-        concept_obj['data'] = list()
-        unique_values = set(values)
-        logger.info('number of values: %s', len(unique_values))
-        for v in unique_values:
-            concept_obj['data'].append({'value': v})
-
-        concepts.append(concept_obj)
-
     # set id for segments and values
     count_features = 0
     count_values = 0
@@ -355,16 +348,16 @@ def define_concepts(output_dir, processes=8):
         item2concepts.append(
             {'itemid': itemid, 'conceptid': item2concept_dict[itemid]})
 
-    logger.info('export concept definition to file')
+    logger.info('EXPORT concept definition to file')
     data = {'item2concept': item2concepts, 'definition': concepts}
     export_dict_to_json(data,
                         os.path.join(output_dir, CONCEPT_DEFINITION_FILENAME))
 
     # update jvn_value in chartevents
-    logger.info('Start update_chartevents_value')
+    logger.info('START update_chartevents_value')
     update_chartevents_value(concept_dir=output_dir)
-    logger.info('Done update_chartevents_value')
-    return
+    logger.info('DONE update_chartevents_value')
+
 
 def update_chartevents_value(concept_dir='../data'):
     """
@@ -388,6 +381,9 @@ def update_chartevents_value(concept_dir='../data'):
     query = ""
     durations = list()
     for index, conceptid in enumerate(concepts_def.keys()):
+        if conceptid >= 300001:
+            continue
+
         logger.debug('update conceptid=%s', conceptid)
         start = datetime.now()
 
@@ -404,12 +400,24 @@ def update_chartevents_value(concept_dir='../data'):
                 SET jvn_value = (floor(valuenum * %s))::int \
                 WHERE valuenum IS NOT NULL AND %s" % (
                     concepts_def[conceptid]['multiply'], concept_condition)
+            logger.info('query=\n%s', query)
             execute_non_query(query)
         else:
-            # category concept: copy value from 'value' column
+            # category concept: hash 'value' column
+            caseelse_conditions = []
+            for v in concepts_def[conceptid]['hashmaps'].keys():
+                caseelse_conditions.append(
+                    " WHEN trim(both ' ' from value)='%s' THEN %s " % (
+                        v, concepts_def[conceptid]['hashmaps'][v]))
+            caseelse_condition = "CASE \
+                    %s \
+                    ELSE NULL \
+                END" % ' '.join(caseelse_conditions)
+
             query = "UPDATE chartevents \
-                SET jvn_value = value \
-                WHERE %s" % concept_condition
+                SET jvn_value = %s \
+                WHERE %s" % (caseelse_condition, concept_condition)
+            logger.info('query=\n%s', query)
             execute_non_query(query)
 
         durations.append((datetime.now() - start).total_seconds())
@@ -420,7 +428,7 @@ def update_chartevents_value(concept_dir='../data'):
                 index + 1, len(concepts_def), np.mean(durations))
 
     logger.info('DURATION (update values): %s seconds',
-        np.sum(durations))
+                np.sum(durations))
 
 
 def load_concept_definition(file_path):
@@ -451,6 +459,10 @@ def load_concept_definition(file_path):
         concepts[conceptid]['segments'] = dict()
         for s in f['segments']:
             concepts[conceptid]['segments'][s['value']] = s['id']
+
+        concepts[conceptid]['hashmaps'] = dict()
+        for h in f['hashmaps']:
+            concepts[conceptid]['hashmaps'][h['value']] = h['hash']
 
     item2concept = dict()
     for c in data['item2concept']:
@@ -497,8 +509,8 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
 
     # prepare arguments
     list_args = []
-    concepts_def, _ = load_concept_definition(
-        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
+    # concepts_def, _ = load_concept_definition(
+    #     os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
         if admission_id in exported_admissions:
@@ -517,7 +529,6 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
                           marital_status,
                           los_icu_h,
                           export_dir,
-                          concepts_def,
                           q_log))
         # DEBUG
         # if len(list_args) == 100:
@@ -556,7 +567,7 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
 
 
 def create_admission_train(admission_id, gender, admission_age, marital_status,
-                           los_icu_h, export_dir, concepts_def, q_log):
+                           los_icu_h, export_dir, q_log):
     """Summary
 
     Args:
@@ -583,7 +594,6 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
 
     # IMPORTANT: update_value takes long time, update values directly on
     # database by run update_chartevents_value function
-    # df_events = update_value(df_events, concepts_def)
 
     # drop rows which have 'value' Empty
     # axis=0: drop rows which contain missing values.
@@ -595,7 +605,7 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     logger.debug('Update time: %s seconds', d)
 
     # add static features
-    static_feature = {
+    static_features = {
         'gender': gender,
         'admission_age': admission_age,
         'marital_status': marital_status,
@@ -604,14 +614,15 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
 
     static_feature_dict = list()
     for name, conceptid, is_number in STATIC_FEATURES:
-        if static_feature[name] is None:
+        static_value = static_features[name]
+        if static_value is None:
             continue
 
         static_feature_dict.append({
             'hadm_id': admission_id,
             'minutes_ago': -1,
             'conceptid': conceptid,
-            'value': static_feature[name]
+            'value': int(static_value) if is_number else hash(static_value)
         })
     temp_df = pd.DataFrame(static_feature_dict)
     logger.debug('temp_df.shape = %s', temp_df.shape)
