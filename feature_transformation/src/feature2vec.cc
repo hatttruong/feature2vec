@@ -323,25 +323,6 @@ void Feature2Vec::saveVectors() {
   ofs.close();
 }
 
-void Feature2Vec::saveOutput() {
-  std::ofstream ofs(args_->output + ".output");
-  if (!ofs.is_open()) {
-    throw std::invalid_argument(
-      args_->output + ".output" + " cannot be opened for saving vectors!");
-  }
-
-  int32_t n = dict_->nfeatures();
-  ofs << n << " " << args_->dim << std::endl;
-  Vector vec(args_->dim);
-  for (int32_t i = 0; i < n; i++) {
-    entry f = dict_->getFeature(i);
-    vec.zero();
-    vec.addRow(*output_, i);
-    ofs << f.conceptid << "," <<  f.value << "," << vec << std::endl;
-  }
-  ofs.close();
-}
-
 void Feature2Vec::loadModel(const std::string & filename) {
   std::ifstream ifs(filename, std::ifstream::binary);
   if (!ifs.is_open()) {

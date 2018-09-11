@@ -47,7 +47,6 @@ void Dictionary::initDefinition() {
     throw std::invalid_argument(
       args_->dict + " cannot be opened for load concept definition!");
   }
-  // std::map<int32_t, std::string> hashTable; // TOBEREMOVE
   Json::Reader reader;
   Json::Value obj;
   reader.parse(in, obj); // reader can also read strings
@@ -64,6 +63,8 @@ void Dictionary::initDefinition() {
   int32_t n_values = 0;
   int32_t n_segments = 0;
   int32_t temp_id;
+  int32_t h_value;
+  std::string str_value;
   std::set<int32_t> unique_ids;
   int32_t numeric_value; // contain value of concepts/segments
   for (int i = 0; i < conceptObj.size(); i++) {
@@ -82,13 +83,10 @@ void Dictionary::initDefinition() {
     // array of data
     const Json::Value& data = conceptObj[i]["data"];
     for (int j = 0; j < data.size(); j++) {
-      if (f.type == feature_type::numeric) {
-        numeric_value = data[j]["value"].asInt64();
-      } else {
-        numeric_value = hash(data[j]["value"].asString());
-        // TOBEREMOVE
-        // hashTable[numeric_value] = data[j]["value"].asString();
-      }
+      // because category features' values are hashed, both numeric and
+      // category features' values are integer
+      numeric_value = data[j]["value"].asInt64();
+
       // check unique id
       temp_id = data[j]["id"].asInt64();
       assert(unique_ids.find(temp_id) == unique_ids.end());
@@ -99,20 +97,27 @@ void Dictionary::initDefinition() {
       n_values++;
     }
 
+    // array of hashmaps, it only applies for category features
+    const Json::Value& hashmaps = conceptObj[i]["hashmaps"];
+    for (int j = 0; j < hashmaps.size(); j++) {
+      str_value = hashmaps[j]["value"].asString();
+      h_value = hashmaps[j]["hash"].asInt64();
+      f.hashmaps[str_value] = h_value;
+    }
+
     // array of segments, it only applies for numeric features
     const Json::Value& segments = conceptObj[i]["segments"];
     for (int j = 0; j < segments.size(); j++) {
-      if (f.type == feature_type::numeric) {
-        // check unique id
-        temp_id = segments[j]["id"].asInt64();
-        assert(unique_ids.find(temp_id) == unique_ids.end());
-        unique_ids.insert(temp_id);
+      // check unique id
+      temp_id = segments[j]["id"].asInt64();
+      assert(unique_ids.find(temp_id) == unique_ids.end());
+      unique_ids.insert(temp_id);
 
-        numeric_value = segments[j]["value"].asInt64();
-        f.segment2id[numeric_value] = temp_id;
-        n_segments++;
-      }
+      numeric_value = segments[j]["value"].asInt64();
+      f.segment2id[numeric_value] = temp_id;
+      n_segments++;
     }
+
     definitions_[f.conceptid] = f;
     ndefinitions_ += 1;
   }
@@ -128,16 +133,6 @@ void Dictionary::initDefinition() {
         << "\nNumber of feature segments: " << n_segments << std::endl;
   }
   in.close();
-
-  // TOBEREMOVE: export hashTable to file
-  // std::ofstream ofs;
-  // ofs.open ("hash_test.txt");
-  // for (auto const& x : hashTable)
-  // {
-  //   ofs << x.second << ","  << x.first <<"\n";
-  //   ofs.write((char*)&x.first, sizeof(uint32_t));
-  // }
-  // ofs.close();
 }
 
 std::map<int32_t, feature_definition> Dictionary::definitions() const {
@@ -196,6 +191,7 @@ void Dictionary::readFromFile(std::istream& in) {
   utils::log("INFO : Dictionary::readFromFile: start");
   std::string::size_type sz;   // alias of size_t
   int32_t conceptid;
+  int32_t value;
   int32_t cur_hadm_id = -1;
   int32_t prev_hadm_id = -1;
   int32_t prev_hadm_pos = 0;
@@ -208,6 +204,10 @@ void Dictionary::readFromFile(std::istream& in) {
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
+      if (v[2] == "227969") {
+        utils::log("DEBUG Dictionary::readFromFile: " + v[0] + "," + v[1] + "," + v[2] +  "," + v[3]);
+      }
+
       if (args_->verbose > 2) {
         std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
         std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
@@ -229,7 +229,8 @@ void Dictionary::readFromFile(std::istream& in) {
       prev_hadm_pos = in.tellg();
 
       conceptid = std::stoi(v[2], &sz);
-      add(conceptid, v[3]);
+      value = std::stoi(v[3], &sz);
+      add(conceptid, value);
 
       // print progress
       if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
@@ -259,7 +260,7 @@ void Dictionary::readFromFile(std::istream& in) {
 
 }
 
-void Dictionary::add(const int32_t conceptid, const std::string& value) {
+void Dictionary::add(const int32_t conceptid, const int32_t value) {
   int32_t h = find(conceptid, value);
   // if <conceptid, value> does not exist in definitions_, ignore it
   if (h < 0) return;
@@ -269,7 +270,7 @@ void Dictionary::add(const int32_t conceptid, const std::string& value) {
     entry e;
     e.id = h;
     e.conceptid = conceptid;
-    e.value = value.c_str();
+    e.value = value;
     e.count = 1;
     features_.push_back(e);
     feature2int_[h] = size_++;
@@ -308,19 +309,38 @@ int32_t Dictionary::find(const int32_t conceptid, const std::string& value) cons
   return id;
 }
 
+// find hash value by conceptid and value in int
+int32_t Dictionary::find(const int32_t conceptid, const int32_t value) const {
+  int32_t id = -1;
+  int32_t new_value = value;
+  struct feature_definition f = definitions_.at(conceptid);
+
+  // numeric features which are out of range
+  if (f.type == feature_type::numeric) {
+    if (value < f.min_value) {
+      new_value = f.min_value - 1;
+    } else if (value > f.max_value) {
+      new_value = f.max_value + 1;
+    }
+  }
+
+  try {
+    id = f.value2id[new_value];
+  }
+  catch (std::exception& e) {
+    std::cerr << "ERROR find(): conceptid=" << conceptid << ", value=" << value;
+    std::cerr << ", what(): " << e.what() << std::endl;
+  }
+
+  return id;
+}
+
 // hash category feature to int
 uint32_t Dictionary::hash(const std::string & str) const {
   uint32_t h = 2166136261;
   for (size_t i = 0; i < str.size(); i++) {
-    //TOBEREMOVE
-    // std::cerr << str[i] << "=" << uint32_t(int8_t(str[i])) << std::endl;
     h = h ^ uint32_t(int8_t(str[i]));
-    //TOBEREMOVE
-    // std::cerr << "h^ = " << h << std::endl;
     h = h * 16777619;
-    //TOBEREMOVE
-    // std::cerr << "h * = " << h << std::endl;
-    // std::cerr << std::endl;
   }
   return h;
 }
@@ -407,6 +427,7 @@ int32_t Dictionary::getEvents(std::istream & in,
   int32_t new_hadm_id;
   std::vector<std::string> v;
   int32_t conceptid;
+  int32_t value;
   int32_t h;
   int32_t minutes_ago;
   int32_t pos = 0;
@@ -433,12 +454,10 @@ int32_t Dictionary::getEvents(std::istream & in,
         pos = in.tellg();
 
         conceptid = std::stoi(v[2], &sz);
-        h = find(conceptid, v[3]);
+        value = std::stoi(v[3], &sz);
+        h = find(conceptid, value);
         if (h < 0) continue;
 
-        // TOBEREMOVE
-        // std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
-        // std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
         nevents++;
         minutes_ago = std::stoi(v[1], &sz);
 
@@ -462,7 +481,7 @@ int32_t Dictionary::getEvents(std::istream & in,
 }
 
 // reset to beginning of file when reading events of admission
-void Dictionary::reset(std::istream& in) const {
+void Dictionary::reset(std::istream & in) const {
   if (in.eof()) {
     utils::log("INFO : Dictionary::reset: reset to beginning");
     in.clear();
@@ -479,7 +498,7 @@ const std::vector<int32_t>& Dictionary::getSegments(int32_t i) const {
 
 // get segments by concepid and value
 const std::vector<int32_t>& Dictionary::getSegments(int32_t conceptid,
-    const std::string& value) const {
+    const std::string & value) const {
   int32_t id = find(conceptid, value);
   return getSegments(id);
 }
@@ -491,7 +510,7 @@ entry Dictionary::getFeature(int32_t id) const {
   return features_[id];
 }
 
-void Dictionary::save(std::ostream& out) const {
+void Dictionary::save(std::ostream & out) const {
   out.write((char*) &size_, sizeof(int32_t));
   out.write((char*) &nfeatures_, sizeof(int32_t));
   out.write((char*) &nevents_, sizeof(int64_t));
@@ -500,13 +519,12 @@ void Dictionary::save(std::ostream& out) const {
     entry e = features_[i];
     out.write((char*) & (e.id), sizeof(int32_t));
     out.write((char*) & (e.conceptid), sizeof(int32_t));
-    out.write(e.value.data(), e.value.size() * sizeof(char));
-    out.put(0);
+    out.write((char*) & (e.value), sizeof(int32_t));
     out.write((char*) & (e.count), sizeof(int64_t));
   }
 }
 
-void Dictionary::load(std::istream& in) {
+void Dictionary::load(std::istream & in) {
   features_.clear();
   in.read((char*) &size_, sizeof(int32_t));
   in.read((char*) &nfeatures_, sizeof(int32_t));
@@ -517,9 +535,7 @@ void Dictionary::load(std::istream& in) {
     entry e;
     in.read((char*) &e.id, sizeof(int32_t));
     in.read((char*) &e.conceptid, sizeof(int32_t));
-    while ((c = in.get()) != 0) {
-      e.value.push_back(c);
-    }
+    in.read((char*) &e.value, sizeof(int32_t));
     in.read((char*) &e.count, sizeof(int64_t));
 
     // check if entry.id = find(conceptid, value)

@@ -112,9 +112,6 @@ void train(const std::vector<std::string> args) {
   feature2vec.train(a);
   feature2vec.saveModel();
   feature2vec.saveVectors();
-  if (a.saveOutput) {
-    feature2vec.saveOutput();
-  }
 }
 
 void test(const std::vector<std::string> args) {

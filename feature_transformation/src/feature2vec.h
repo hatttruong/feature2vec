@@ -68,7 +68,6 @@ public:
   // std::shared_ptr<const Matrix> getOutputMatrix() const;
   void saveVectors();
   void saveModel(const std::string);
-  void saveOutput();
   void saveModel();
   void loadModel(std::istream&);
   void loadModel(const std::string&);

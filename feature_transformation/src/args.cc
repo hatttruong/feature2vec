@@ -34,8 +34,6 @@ Args::Args() {
   t = 1e-4;
   verbose = 2;
   pretrainedVectors = "";
-  saveOutput = false;
-
 }
 
 std::string Args::lossToString(loss_name ln) const {
@@ -133,9 +131,6 @@ void Args::parseArgs(const std::vector<std::string>& args) {
         verbose = std::stoi(args.at(ai + 1));
       } else if (args[ai] == "-pretrainedVectors") {
         pretrainedVectors = std::string(args.at(ai + 1));
-      } else if (args[ai] == "-saveOutput") {
-        saveOutput = true;
-        ai--;
       } else {
         std::cerr << "Unknown argument: " << args[ai] << std::endl;
         printHelp();
@@ -194,8 +189,7 @@ void Args::printTrainingHelp() {
       << "  -neg                number of negatives sampled [" << neg << "]\n"
       << "  -loss               loss function {ns, hs, softmax} [" << lossToString(loss) << "]\n"
       << "  -thread             number of threads [" << thread << "]\n"
-      << "  -pretrainedVectors  pretrained feature vectors for supervised learning [" << pretrainedVectors << "]\n"
-      << "  -saveOutput         whether output params should be saved [" << boolToString(saveOutput) << "]\n";
+      << "  -pretrainedVectors  pretrained feature vectors for supervised learning [" << pretrainedVectors << "]\n";
 }
 
 

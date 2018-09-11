@@ -47,7 +47,6 @@ public:
   double t;
   int verbose;
   std::string pretrainedVectors;
-  bool saveOutput;
 
   void parseArgs(const std::vector<std::string>& args);
   void printHelp();
