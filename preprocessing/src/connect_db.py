@@ -88,7 +88,7 @@ def execute_query(query):
             return fetch(cursor, query)
 
     except Exception as e:
-        logger.error('Connection Failed')
+        logger.error('There is something wrong when execute QUERY=\n%s', query)
         raise e
 
 
@@ -144,14 +144,15 @@ def execute_non_query(query, has_return=False):
     try:
         if Configer.use_ssh:
             with SSHTunnelForwarder(
-                (IP_ADDRESS, PORT),
-                ssh_username=SSH_USERNAME,
-                ssh_password=SSH_PASSWORD,
-                remote_bind_address=('localhost', 5432)) as server:
+                    (IP_ADDRESS, PORT),
+                    ssh_username=SSH_USERNAME,
+                    ssh_password=SSH_PASSWORD,
+                    remote_bind_address=('localhost', 5432)) as server:
 
                 server.start()
                 logger.debug('server connected')
-                logger.debug('server.local_bind_port: %s', server.local_bind_port)
+                logger.debug('server.local_bind_port: %s',
+                             server.local_bind_port)
 
                 params = {
                     'database': DB_NAME,
@@ -202,9 +203,9 @@ def execute_non_query(query, has_return=False):
                     return_id = row[0]
                     break
 
-
     except Exception as e:
-        logger.error('Connection Failed')
+        logger.error('There is something wrong when execute non-QUERY=\n%s',
+                     query)
         raise e
 
     return return_id

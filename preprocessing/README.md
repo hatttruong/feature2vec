@@ -1,6 +1,6 @@
 # README - Predict Length of Stay - Preprocessing #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+This README would document whatever steps are necessary to get your application up and running.
 
 # 1. Setup
 
@@ -76,11 +76,22 @@ $ psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f /Users/ha
 
 Here is command to generate:
 ```
-$ cd python
-$ python3 main.py define_concepts -o ../data -p 8
-# Total concepts: 6463
-# TOTAL DURATION: 1918 seconds ~ 31mins
-# total features: 948392 (not merged)
+$ (on local machine: 8G Ram)
+$ cd preprocessing
+$ python3 main.py define_concepts -cd ../data -p 12
+
+# Total concepts: 4
+# TOTAL DURATION (static features): 0.620664 seconds
+# TOTAL DURATION (load raw non-static concepts): 218.988309 seconds ~ 3.5mins
+# Number of concept arguments: 6
+# DONE 6376/6376 concepts
+# TOTAL DURATION (create non-static concepts): 1864.641468 seconds ~ 31mins
+# seconds/concept: 0.29244690526976164 seconds
+# mean query times: 3.2923380912797993
+# Total Values: 122198
+# Total Segments: 509478
+# Total Features: 631676
+
 ```
 
 * `concept_definition.json` structure:
@@ -93,35 +104,60 @@ $ python3 main.py define_concepts -o ../data -p 8
         'min_value': 1,
         'max_value': 99,
         'multiply': 1,
-        'data': [{'value': 3}, {'value': 4}],
-        'segments': [{'value': 0}, {'value': 2}],
+        'data': [
+            {'value': 3, 'id': 0},
+            {'value': 4, 'id': 1}
+        ],
+        'segments': [
+            {'value': 0, 'id': 2},
+            {'value': 2, 'id': 3}
+        ],
+        'hashmaps': [
+            {"value": "MARRIED", "hash": 1039924087},
+            {"value": "SEPARATED", "hash": 1106694804}
+        ]
     }],
     'item2concept': [{'itemid': 1, 'conceptid': 2}, {'itemid': 11, 'conceptid': 3}]
 }
 ```
 
-* It takes 30-40 mins in average for exporting concept definition.
+* It takes **35 mins** in average for exporting all concept definitions.
 * In case we don't merge duplicate items:
-    - there are **6463** items in **chartevents**
-    - it takes **5** mins to extract items from **chartevents** table
-    - we don't extract based on **linksto** field of **d_items** because it is INCORRECT)
-    - total features: **948392**
+    - There are **4** static items in **v_first_admissions**
+    - There are **6376** non-static items in **chartevents**
+    - It takes **3.5** mins to extract items from **chartevents** table
+    - We don't extract based on **linksto** field of **d_items** because it is INCORRECT
+    - Total features: **631676**
 * In case we merge duplicate items, **TODO**
-    - there are xxx concepts in **chartevents**
-    - it takes xxmins to extract items from **chartevents** table
-    - we don't extract based on **linksto** field of **d_items** because it is INCORRECT)
-    - total features: xxx
+    - There are **xxx** concepts in **chartevents**
+    - It takes **xx** mins to extract items from **chartevents** table
+    - We don't extract based on **linksto** field of **d_items** because it is INCORRECT
+    - Total features: **xxx**
 
+### Update `chartevents` table:
+
+* Update value of chartevents based on `concept_definition.json`: after exporting `concept_definition.json`, value of `chartevents` table will be updated (the new values are stored in `jvn_value` column).
+* It takes about **9 hrs** to done.
+
+```
+
+# START update value of chartevents based on "concept_definition.json"
+# Total concepts (load from json): 6380
+# Done: 50/6380 concepts, avg duration: 1.01 seconds/concept
+# Done: 100/6380 concepts, avg duration: 2.75 seconds/concept
+...
+# DURATION (update values): XXX seconds
+```
 
 ### Generate `data_train.csv`:
 
 Here is command to generate:
 ```
-$ cd python
-$ python3 main.py create_train_dataset -ed ../data/train -p 8
+$ cd preprocessing
+$ python3 main.py create_train_dataset -cd ../data -p 12 -ed ../data/temp
 ```
 
-* `data_train.csv` structure: sorted by hadm_id, minutes_ago
+* `data_train.csv` structure: sorted by hadm_id, minutes_ago and **without** header
 
 ```
 hadm_id, minutes_ago, conceptid, value
@@ -129,7 +165,7 @@ hadm_id, minutes_ago, conceptid, value
 ...
 ```
 
-* It takes 1 min in average for exporting data of 50 admissions
+* It takes **xx** mins in average for exporting data of 50 admissions and about **xx** hours to export all data.
 
 ```
 2018-09-06 07:43:05,118 : INFO : DONE 34140/34140 admissions
@@ -142,5 +178,5 @@ hadm_id, minutes_ago, conceptid, value
 * run `concat_train_data.sh`:
 
 ```
-Total Entry: 170,683,041
+Total Entries: 283,919,487
 ```

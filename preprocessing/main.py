@@ -25,7 +25,9 @@ print(Configer.db_name, Configer.db_username, Configer.db_password)
 
 if __name__ == '__main__':
     parser.add_argument(
-        'action', choices=['define_concepts', 'create_train_dataset'],
+        'action',
+        choices=['define_concepts', 'update_chartevents',
+                 'create_train_dataset'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -45,6 +47,9 @@ if __name__ == '__main__':
         create_train_dataset(export_dir=args.export_dir,
                              processes=args.process,
                              concept_dir=args.concept_dir)
+    elif args.action == 'update_chartevents':
+        update_chartevents_value(concept_dir=args.concept_dir)
+
     elif args.action == 'define_concepts':
         define_concepts(output_dir=args.concept_dir,
                         processes=args.process)

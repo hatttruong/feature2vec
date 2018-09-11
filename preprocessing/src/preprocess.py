@@ -278,7 +278,7 @@ def define_concepts(output_dir, processes=8):
     '''
     start = datetime.now()
     df_concepts = load_concepts()
-    logger.info('TOTAL DURATION (load non-static concepts): %s seconds',
+    logger.info('TOTAL DURATION (load raw non-static concepts): %s seconds',
                 (datetime.now() - start).total_seconds())
 
     # prepare arguments
@@ -293,6 +293,8 @@ def define_concepts(output_dir, processes=8):
         #     break
         # END DEBUG
 
+    logger.info('Number of concept arguments: %s', len(list_args))
+
     # use mutiprocessing
     if len(list_args) > 0:
         # start x worker processes
@@ -303,7 +305,9 @@ def define_concepts(output_dir, processes=8):
 
             logger.info('DONE %s/%s concepts', q_log.qsize(), len(list_args))
             total_duration = (datetime.now() - start_pool).total_seconds()
-            logger.info('TOTAL DURATION: %s seconds', total_duration)
+            logger.info(
+                'TOTAL DURATION (create non-static concepts): %s seconds',
+                total_duration)
             logger.info('seconds/concept: %s seconds',
                         total_duration * 1.0 / q_log.qsize())
 
@@ -353,11 +357,6 @@ def define_concepts(output_dir, processes=8):
     export_dict_to_json(data,
                         os.path.join(output_dir, CONCEPT_DEFINITION_FILENAME))
 
-    # update jvn_value in chartevents
-    logger.info('START update_chartevents_value')
-    update_chartevents_value(concept_dir=output_dir)
-    logger.info('DONE update_chartevents_value')
-
 
 def update_chartevents_value(concept_dir='../data'):
     """
@@ -373,10 +372,15 @@ def update_chartevents_value(concept_dir='../data'):
     TODO: after merge item, use condition:
         itemid IN (SELECT itemid FROM jvn_item_mapping WHERE conceptid=%s)
     """
-    logger.info('Update value of chartevents based on %s',
+    concept_fullpath = os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME)
+    error_mess = concept_fullpath + " does not exist. Please run define_concepts first"
+    assert os.path.isfile(concept_fullpath), error_mess
+
+    logger.info('START update value of chartevents based on "%s"',
                 CONCEPT_DEFINITION_FILENAME)
-    concepts_def, _ = load_concept_definition(
-        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
+    concepts_def, _ = load_concept_definition(concept_fullpath)
+    logger.info('Total concepts (load from json): %s',
+                len(concepts_def))
 
     query = ""
     durations = list()
@@ -400,15 +404,21 @@ def update_chartevents_value(concept_dir='../data'):
                 SET jvn_value = (floor(valuenum * %s))::int \
                 WHERE valuenum IS NOT NULL AND %s" % (
                     concepts_def[conceptid]['multiply'], concept_condition)
-            logger.info('query=\n%s', query)
+            logger.debug('query=\n%s', query)
             execute_non_query(query)
         else:
             # category concept: hash 'value' column
             caseelse_conditions = []
             for v in concepts_def[conceptid]['hashmaps'].keys():
+                if "'" in v:
+                    logger.info(
+                        'There is single quote in "%s", replace with "%s"',
+                        v, v.replace("'", "''"))
+
                 caseelse_conditions.append(
                     " WHEN trim(both ' ' from value)='%s' THEN %s " % (
-                        v, concepts_def[conceptid]['hashmaps'][v]))
+                        v.replace("'", "''"),
+                        concepts_def[conceptid]['hashmaps'][v]))
             caseelse_condition = "CASE \
                     %s \
                     ELSE NULL \
@@ -417,12 +427,12 @@ def update_chartevents_value(concept_dir='../data'):
             query = "UPDATE chartevents \
                 SET jvn_value = %s \
                 WHERE %s" % (caseelse_condition, concept_condition)
-            logger.info('query=\n%s', query)
+            logger.debug('query=\n%s', query)
             execute_non_query(query)
 
         durations.append((datetime.now() - start).total_seconds())
 
-        if (index + 1) % 10 == 0:
+        if (index + 1) % 50 == 0:
             logger.info(
                 'Done: %s/%s concepts, avg duration: %.2f seconds/concept',
                 index + 1, len(concepts_def), np.mean(durations))
@@ -509,8 +519,6 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
 
     # prepare arguments
     list_args = []
-    # concepts_def, _ = load_concept_definition(
-    #     os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
         if admission_id in exported_admissions:
@@ -531,8 +539,8 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
                           export_dir,
                           q_log))
         # DEBUG
-        # if len(list_args) == 100:
-        #     break
+        if len(list_args) == 100:
+            break
         # END DEBUG
 
     logger.info('Remaining: %s admissions', len(list_args))
@@ -599,6 +607,11 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     # axis=0: drop rows which contain missing values.
     # how=any: If any NA values are present, drop that row or column.
     df_events.dropna(axis=0, how='any', inplace=True)
+
+    # ignore any admissions which have no chartevents
+    if df_events.shape[0] == 0:
+        logger.warn('admission_id=%s has no valid chartevents', admission_id)
+        return
 
     d = (datetime.now() - start).total_seconds()
     update_time = d
