@@ -7,6 +7,7 @@ This README would document whatever steps are necessary to get your application 
 ## Setup to connect Postgres in Python
 
 - environment: Python 3.5
+- install JAVA (requirement of `boilerpipe3`)
 - install requirements (including psycopg2, sshtunnel):
     ```
     $ sudo apt-get update
@@ -30,7 +31,7 @@ $ sudo python3 test_suite.py
 
 # 2. Main functions
 
-## Prepare data for merge tool
+## 2.1 Prepare data for merge tool
 
 !TODO
 Crawl google search result for each items (save to `SearchTermResults` table)
@@ -62,7 +63,7 @@ candidateGroupId
 groupId
 ```
 
-## Prepare data to train feature
+## 2.2 Prepare data to train feature
 
 There are two files we need to prepare for training **feature2vec**: `concept_definition.json` and `data_train.csv`.
 
@@ -72,7 +73,7 @@ In order to improve performance, add index on `chartevents` tables:
 $ psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f /Users/hatruong/hagit/feature2vec/mics/add_index.sql
 ```
 
-### Generate `concept_definition.json`
+### 2.2.1 Generate `concept_definition.json`
 
 Here is command to generate:
 ```
@@ -134,7 +135,7 @@ $ python3 main.py define_concepts -cd ../data -p 12
     - We don't extract based on **linksto** field of **d_items** because it is INCORRECT
     - Total features: **xxx**
 
-### Update `chartevents` table:
+### 2.2.2 Update `chartevents` table:
 
 * Update value of chartevents based on `concept_definition.json`: after exporting `concept_definition.json`, value of `chartevents` table will be updated (the new values are stored in `jvn_value` column).
 * It takes about **9 hrs** to done.
@@ -146,10 +147,10 @@ $ python3 main.py define_concepts -cd ../data -p 12
 # Done: 50/6380 concepts, avg duration: 1.01 seconds/concept
 # Done: 100/6380 concepts, avg duration: 2.75 seconds/concept
 ...
-# DURATION (update values): XXX seconds
+# DURATION (update values): 50889 seconds ~ 14hrs
 ```
 
-### Generate `data_train.csv`:
+### 2.2.3 Generate `data_train.csv`:
 
 Here is command to generate:
 ```
@@ -165,18 +166,19 @@ hadm_id, minutes_ago, conceptid, value
 ...
 ```
 
-* It takes **xx** mins in average for exporting data of 50 admissions and about **xx** hours to export all data.
+* It takes **2-5** seconds in average for exporting data of 50 admissions and about **30** minutes to export all data.
 
 ```
-2018-09-06 07:43:05,118 : INFO : DONE 34140/34140 admissions
-2018-09-06 07:43:05,121 : INFO : TOTAL DURATION: 111030.402759 seconds
-2018-09-06 07:43:05,126 : INFO : seconds/admissions: 3.252208633831283 seconds
-2018-09-06 07:43:08,456 : INFO : mean query times: 0.2832815412126538
-2018-09-06 07:43:08,457 : INFO : mean update times: 23.594490145049793
+2018-09-12 11:01:52,814 : INFO : DONE 34134/34134 admissions
+2018-09-12 11:01:52,820 : INFO : TOTAL DURATION: 1853.657842 seconds
+2018-09-12 11:01:52,829 : INFO : seconds/admissions: 0.05446488341070694 seconds
+2018-09-12 11:01:56,680 : INFO : mean query times: 0.5911701626314861
+2018-09-12 11:01:56,682 : INFO : mean update times: 0.0035191389786683905
+2018-09-12 11:01:56,736 : INFO : run "concat_train_data.sh" to concat all files
 ```
 
 * run `concat_train_data.sh`:
 
 ```
-Total Entries: 283,919,487
+Total Entries: 177,804,820
 ```

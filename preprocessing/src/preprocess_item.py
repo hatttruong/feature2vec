@@ -1,4 +1,19 @@
 """Summary
+Preprocessing including following steps:
+    1. Grouping:
+        1.1 find similar item names: using fuzzy, or word embedding.
+            note: one group must contain items belonging to the same "linksto"
+            result: group of similar item ids in dictionary
+            example: {group_index:
+                [(itemid, label, abbreviation), (itemid, name, abbreviation),...]}
+            output: similar_items_step1
+        1.2 compare distribution:
+            using kullback-leiber to compute similarity between each pair in a group
+            define threshold
+            output: similar_items_step2
+        1.3 review manually
+            output: similar_items_final
+
 # Step 1: enrich label
 for each word w in "label":
     if it is not in English word:
@@ -17,16 +32,25 @@ For each "label":
 For each "label":
     Use a cluster algorithms to cluster documents of "label" and each candidate similar label, K = 2
     choose "candidate" with score > threshold
+
+
 """
 
 import requests
 from lxml import html
-from search import BingSearch
 import os
 import sys
 import base64
 import pandas as pd
+import logging
 import urllib.parse
+import hashlib
+
+from src.db_util import *
+from src.preprocess import *
+from src.search import BingSearch
+
+logger = logging.getLogger(__name__)
 
 
 def search_term(term, export_dir, count=100):
@@ -47,41 +71,52 @@ def search_term(term, export_dir, count=100):
                         ignored_extensions=IGNORED_EXTENSIONS)
     i = 1
 
-    print('Fetching first ' + str(count) + ' results for "' + term + '"...')
-    response = search.search(term, count, prefetch_pages=True)
+    logger.info('Fetching first %s results for "%s"...', count, term)
+    response = search.search(term, count * 1.5, prefetch_pages=True)
 
-    print("TOTAL: " + str(response.total) + " RESULTS")
+    logger.info("TOTAL: %s RESULTS", response.total)
     os.makedirs(export_dir, exist_ok=True)
 
+    output_files = []
     for result in response.results:
         try:
             content = result.getText()
             if content is not None and len(content) > 0:
-                encode_url = urllib.parse.quote(
-                    base64.b64encode(result.url.encode()))
-                file_path = os.path.join(export_dir, encode_url + '.txt')
+                encrypted_url = hashlib.md5(result.url.encode()).hexdigest()
+                file_path = os.path.join(export_dir, encrypted_url)
 
-                print("RESULT #" + str(i) + ":\n\t" +
-                      encode_url + "\n\t" + result.url)
+                logger.info("RESULT #%s: \n\tencrypted_url: %s \n\turl: %s",
+                            i, encrypted_url, result.url)
                 i += 1
                 with open(file_path, 'w') as f:
                     f.write(str(content.encode('utf-8')))
+
+                output_files.append(file_path)
+                if len(output_files) >= count:
+                    break
         except Exception as e:
             raise e
+    return output_files
 
 
 def cluster():
     """Summary
     """
-    pass
+    export_path = '../data/webpages'
+    concept_dir = '../data'
+    concept_fullpath = os.path.join(
+        concept_dir, CONCEPT_DEFINITION_FILENAME)
+    d_items = get_d_items()
+    concept_definitions, _ = load_concept_definition(concept_fullpath)
+    logger.info('Total concepts: %s', len(concept_definitions))
 
-
-if __name__ == '__main__':
-    export_path = '../../output'
-    df = pd.read_csv('../../data/d_items.csv')
-    chartevent_items_df = df[(df.linksto == 'chartevents')]
-    print('chartevent_items_df.shape:', chartevent_items_df.shape)
-    for index, row in chartevent_items_df.iterrows():
-        search_term(row['label'],
-                    os.path.join(export_path, str(row['itemid'])),
-                    count=50)
+    files_dict = dict()
+    for conceptid in concept_definitions.keys():
+        item = d_items.loc[d_items['itemid'] == conceptid]
+        if item.shape[0] == 1:
+            label = item['label'].values[0]
+            filenames = search_term(label, export_path, count=50)
+            logger.info('conceptid=%s, label=%s, nb_webpages=%s',
+                        conceptid, label, len(filenames))
+            files_dict[conceptid] = ','.join(filenames)
+            break

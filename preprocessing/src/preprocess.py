@@ -539,8 +539,8 @@ def create_train_dataset(export_dir, processes, concept_dir='../data'):
                           export_dir,
                           q_log))
         # DEBUG
-        if len(list_args) == 100:
-            break
+        # if len(list_args) == 100:
+        #     break
         # END DEBUG
 
     logger.info('Remaining: %s admissions', len(list_args))

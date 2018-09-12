@@ -9,6 +9,7 @@ import argparse
 
 from src.preprocess import *
 from src.configer import *
+from src.preprocess_item import cluster
 
 Configer = Configer('setting.ini')
 logging.basicConfig(
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'action',
         choices=['define_concepts', 'update_chartevents',
-                 'create_train_dataset'],
+                 'create_train_dataset', 'cluster'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -53,3 +54,5 @@ if __name__ == '__main__':
     elif args.action == 'define_concepts':
         define_concepts(output_dir=args.concept_dir,
                         processes=args.process)
+    elif args.action == 'cluster':
+        cluster()

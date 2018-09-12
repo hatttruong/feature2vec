@@ -8,6 +8,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_d_items():
+    """
+    Get all d_items
+
+    Returns:
+        TYPE: Description
+    """
+    query = 'SELECT * FROM d_items;'
+    df = execute_query_to_df(query)
+    return df
 
 def get_chartevents_by_ids(item_ids, output_path=None):
     """

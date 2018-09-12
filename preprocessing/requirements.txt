@@ -4,3 +4,7 @@ seaborn
 scikit-learn
 psycopg2
 configparser
+requests
+lxml
+beautifulsoup4
+boilerpipe3

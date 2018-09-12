@@ -1,7 +1,8 @@
 #!/bin/bash
 DATA_DIR=../data
 TRAIN_DIR=$DATA_DIR/train
-CONCAT_FILE=$DATA_DIR/data_train_chartevents_not_merge.csv
+FILE_NAME=data_train_chartevents_not_merge
+CONCAT_FILE=$DATA_DIR/$FILE_NAME.csv
 
 # CASE 1: csv files contain header
 # # remove header of files
@@ -27,11 +28,15 @@ CONCAT_FILE=$DATA_DIR/data_train_chartevents_not_merge.csv
 
 
 # CASE 2: csv files do not contain header
-echo "concat temp  *.csv to $CONCAT_FILE";
+echo "concat $TRAIN_DIR/*.csv to $CONCAT_FILE";
 find $TRAIN_DIR -type f -name '*.csv' -exec cat {} + >> $CONCAT_FILE
 
 concat_file_lines=$(wc -l < "$CONCAT_FILE")
 echo "Total lines of concat result is $concat_file_lines";
 
-echo "create a sample (10M) from $CONCAT_FILE"
-head -10000000 $CONCAT_FILE > "$CONCAT_FILE.sample"
+echo "create a sample (0.5M) from $CONCAT_FILE"
+head -500000 $CONCAT_FILE > "$CONCAT_FILE.0.5M"
+
+echo "zip files to copy to server"
+cd $DATA_DIR
+zip -r $FILE_NAME.zip $FILE_NAME.csv

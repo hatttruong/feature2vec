@@ -26,6 +26,9 @@ from boilerpipe.extract import Extractor
 import base64
 import sys
 import urllib.parse
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSearch(object):
@@ -136,9 +139,9 @@ class BaseSearch(object):
 
             # NEXT PAGE
             links = soup.select(BaseSearch.NEXT_PAGE_SELECTOR)
-            if len(links) > 0:
+            if len(links) > 0 and links[0].get('href') is not None:
                 url_search = BaseSearch.SEARCH_URL + links[0].get('href')
-                print('next_page:', url_search)
+                logger.info('next_page: %s', url_search)
             else:
                 break
 
@@ -161,12 +164,12 @@ class BaseSearch(object):
             title = result.text
 
             if url[-4:] in self.ignored_extensions:
-                print('IGNORED LINK: %s' % url)
+                logger.info('IGNORED LINK: %s', url)
                 continue
 
             site = url.split("//")[-1].split("/")[0].split('?')[0]
             if site in self.ignored_sites:
-                print('IGNORED LINK: %s' % url)
+                logger.info('IGNORED LINK: %s', url)
                 continue
 
             searchResults.append(SearchResult(title, url))
@@ -227,9 +230,13 @@ class SearchResult:
         if self.retrievable and self.__text is None:
             html = self.getMarkup()
             if html is not None:
-                extractor = Extractor(
-                    extractor=extractor_type, html=html)
-                self.__text = extractor.getText()
+                try:
+                    extractor = Extractor(
+                        extractor=extractor_type, html=html)
+                    self.__text = extractor.getText()
+                except Exception as e:
+                    logger.error('cannot get text of url=%s', self.url)
+                    self.__text = ''
 
         return self.__text
 
@@ -250,7 +257,7 @@ class SearchResult:
                 self.__markup = response.text
             except requests.exceptions.ConnectionError as e:
                 self.retrievable = False
-                print('ERROR: cannot get content of url=%s' % self.url)
+                logger.error('cannot get content of url=%s', self.url)
                 pass
             except Exception as e:
                 raise e
