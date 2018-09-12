@@ -141,7 +141,7 @@ class BaseSearch(object):
             links = soup.select(BaseSearch.NEXT_PAGE_SELECTOR)
             if len(links) > 0 and links[0].get('href') is not None:
                 url_search = BaseSearch.SEARCH_URL + links[0].get('href')
-                logger.info('next_page: %s', url_search)
+                logger.debug('next_page: %s', url_search)
             else:
                 break
 
@@ -164,12 +164,12 @@ class BaseSearch(object):
             title = result.text
 
             if url[-4:] in self.ignored_extensions:
-                logger.info('IGNORED LINK: %s', url)
+                logger.debug('IGNORED LINK: %s', url)
                 continue
 
             site = url.split("//")[-1].split("/")[0].split('?')[0]
             if site in self.ignored_sites:
-                logger.info('IGNORED LINK: %s', url)
+                logger.debug('IGNORED LINK: %s', url)
                 continue
 
             searchResults.append(SearchResult(title, url))
