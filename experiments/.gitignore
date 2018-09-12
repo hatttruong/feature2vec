@@ -91,3 +91,6 @@ ENV/
 # setting file
 *.ini
 *.ini.*
+
+# ignore output
+*.png
