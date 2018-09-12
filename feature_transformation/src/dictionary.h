@@ -30,16 +30,16 @@ struct feature_definition {
   int32_t multiply;
   // key: value (int) if feature is numeric, hash(value) if feature is category
   // value: unique id
-  std::map<int32_t, int32_t> value2id;
-  std::map<int32_t, int32_t> id2value; // conversed of values
+  std::map<int64_t, int32_t> value2id;
+  std::map<int32_t, int64_t> id2value; // conversed of values
   std::map<int32_t, int32_t> segment2id;
-  std::map<std::string, int32_t> hashmaps;
+  std::map<std::string, int64_t> hashmaps;
 };
 
 struct entry {
   int32_t id; // hash of (conceptid, value)
   int32_t conceptid;
-  int32_t value; // actual value if numeric, hash(value) if category
+  int64_t value; // actual value if numeric, hash(value) if category
   int64_t count;
   std::vector<int32_t> segments;  // index of segment in input_
 };
@@ -78,7 +78,7 @@ protected:
   int64_t nevents_;
 
   int32_t find(const int32_t, const std::string&) const;
-  int32_t find(const int32_t, const int32_t) const;
+  int32_t find(const int32_t, const int64_t) const;
   void initDefinition();
   void initSegments();
   void reset(std::istream&) const;
@@ -97,7 +97,7 @@ public:
   void readFromFile(std::istream&);
   bool readFeature(std::istream&, std::vector<std::string>&) const;
   entry getFeature(int32_t) const;
-  void add(const int32_t, const int32_t);
+  void add(const int32_t, const int64_t);
   int32_t getEvents(
     std::istream&,
     std::vector<event_entry>&,

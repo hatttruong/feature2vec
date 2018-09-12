@@ -85,13 +85,13 @@ Here is the result:
 * Using CBOW
 
 ```
-$ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/cbow_ce_nm -epoch 5 -verbose 2 -saveOutput
+$ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/cbow_ce_nm -epoch 5 -verbose 2
 ```
 
 * Using Skipgram
 
 ```
-$ ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/skipgram_ce_nm -epoch 5 -verbose 2 -saveOutput
+$ ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv -output ../models/skipgram_ce_nm -epoch 5 -verbose 2
 
 Number of parsed feature definitions: 6380
 Number of feature values: 189163
@@ -101,8 +101,11 @@ Start at: 2018-09-06.10:40:52
 Read 283M events
 End at: 2018-09-06.14:01:52. Duration: ~3h 20 mins
 
+#### TEST SAMPLE ####
+./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv.0.5M -output ../models/skipgram_ce_nm_05M -epoch 5 -verbose 2
+
 #### TEST tp7 server ####
-sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm -epoch 5 -verbose 2 -saveOutput
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm -epoch 5 -verbose 2
 ```
 
 ### Print feature vector

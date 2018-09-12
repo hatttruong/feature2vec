@@ -63,10 +63,10 @@ void Dictionary::initDefinition() {
   int32_t n_values = 0;
   int32_t n_segments = 0;
   int32_t temp_id;
-  int32_t h_value;
+  int64_t h_value;
   std::string str_value;
   std::set<int32_t> unique_ids;
-  int32_t numeric_value; // contain value of concepts/segments
+  int64_t numeric_value; // contain value of concepts/segments
   for (int i = 0; i < conceptObj.size(); i++) {
     feature_definition f;
     f.conceptid = conceptObj[i]["conceptid"].asInt64();
@@ -124,7 +124,8 @@ void Dictionary::initDefinition() {
 
   if (n_segments > args_->bucket) {
     throw std::invalid_argument(
-      args_->bucket + " is not enough.Total segments are " + n_segments);
+      std::to_string(args_->bucket) + " is not enough.Total segments are " +
+      std::to_string(n_segments));
   }
   if (args_->verbose > 0) {
     std::cerr
@@ -191,7 +192,7 @@ void Dictionary::readFromFile(std::istream& in) {
   utils::log("INFO : Dictionary::readFromFile: start");
   std::string::size_type sz;   // alias of size_t
   int32_t conceptid;
-  int32_t value;
+  int64_t value;
   int32_t cur_hadm_id = -1;
   int32_t prev_hadm_id = -1;
   int32_t prev_hadm_pos = 0;
@@ -204,37 +205,42 @@ void Dictionary::readFromFile(std::istream& in) {
   while (readFeature(in, v)) {
     // hadm_id,minutes_ago,conceptid,value
     if (v.size() >= 4) {
-      if (v[2] == "227969") {
-        utils::log("DEBUG Dictionary::readFromFile: " + v[0] + "," + v[1] + "," + v[2] +  "," + v[3]);
-      }
+      try {
 
-      if (args_->verbose > 2) {
+        if (args_->verbose > 2) {
+          std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
+          std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
+        }
+
+        cur_hadm_id = std::stoi(v[0], &sz);
+
+        // for the first event of admission
+        if (prev_hadm_id == -1) {
+          admissionPositions_.push_back(0);
+
+        } else if (cur_hadm_id != prev_hadm_id) {
+          // if this line is new admission
+          admissionPositions_.push_back(prev_hadm_pos);
+        }
+
+        // keep track information
+        prev_hadm_id = cur_hadm_id;
+        prev_hadm_pos = in.tellg();
+
+        conceptid = std::stoi(v[2], &sz);
+        value = std::stoul(v[3], nullptr, 0);
+        add(conceptid, value);
+
+        // print progress
+        if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
+          std::cerr << "\rRead " << nevents_  / 1000000 << "M events" << std::flush;
+        }
+
+      } catch (std::exception& e) {
+        std::cerr << "ERROR readFromFile():" ;
         std::cerr << "Data: hadm_id=" << v[0] << ", minutes_ago=" << v[1];
         std::cerr << ", conceptid=" << v[2] << ", value=" << v[3] << std::endl;
-      }
-
-      cur_hadm_id = std::stoi(v[0], &sz);
-
-      // for the first event of admission
-      if (prev_hadm_id == -1) {
-        admissionPositions_.push_back(0);
-
-      } else if (cur_hadm_id != prev_hadm_id) {
-        // if this line is new admission
-        admissionPositions_.push_back(prev_hadm_pos);
-      }
-
-      // keep track information
-      prev_hadm_id = cur_hadm_id;
-      prev_hadm_pos = in.tellg();
-
-      conceptid = std::stoi(v[2], &sz);
-      value = std::stoi(v[3], &sz);
-      add(conceptid, value);
-
-      // print progress
-      if (nevents_ % 1000000 == 0 && args_->verbose > 1) {
-        std::cerr << "\rRead " << nevents_  / 1000000 << "M events" << std::flush;
+        std::cerr << "what(): " << e.what() << std::endl;
       }
     }
   }
@@ -260,7 +266,7 @@ void Dictionary::readFromFile(std::istream& in) {
 
 }
 
-void Dictionary::add(const int32_t conceptid, const int32_t value) {
+void Dictionary::add(const int32_t conceptid, const int64_t value) {
   int32_t h = find(conceptid, value);
   // if <conceptid, value> does not exist in definitions_, ignore it
   if (h < 0) return;
@@ -310,9 +316,9 @@ int32_t Dictionary::find(const int32_t conceptid, const std::string& value) cons
 }
 
 // find hash value by conceptid and value in int
-int32_t Dictionary::find(const int32_t conceptid, const int32_t value) const {
+int32_t Dictionary::find(const int32_t conceptid, const int64_t value) const {
   int32_t id = -1;
-  int32_t new_value = value;
+  int64_t new_value = value;
   struct feature_definition f = definitions_.at(conceptid);
 
   // numeric features which are out of range
@@ -427,7 +433,7 @@ int32_t Dictionary::getEvents(std::istream & in,
   int32_t new_hadm_id;
   std::vector<std::string> v;
   int32_t conceptid;
-  int32_t value;
+  int64_t value;
   int32_t h;
   int32_t minutes_ago;
   int32_t pos = 0;
@@ -454,7 +460,7 @@ int32_t Dictionary::getEvents(std::istream & in,
         pos = in.tellg();
 
         conceptid = std::stoi(v[2], &sz);
-        value = std::stoi(v[3], &sz);
+        value = std::stoul(v[3], nullptr, 0);
         h = find(conceptid, value);
         if (h < 0) continue;
 
@@ -519,7 +525,7 @@ void Dictionary::save(std::ostream & out) const {
     entry e = features_[i];
     out.write((char*) & (e.id), sizeof(int32_t));
     out.write((char*) & (e.conceptid), sizeof(int32_t));
-    out.write((char*) & (e.value), sizeof(int32_t));
+    out.write((char*) & (e.value), sizeof(int64_t));
     out.write((char*) & (e.count), sizeof(int64_t));
   }
 }
@@ -535,7 +541,7 @@ void Dictionary::load(std::istream & in) {
     entry e;
     in.read((char*) &e.id, sizeof(int32_t));
     in.read((char*) &e.conceptid, sizeof(int32_t));
-    in.read((char*) &e.value, sizeof(int32_t));
+    in.read((char*) &e.value, sizeof(int64_t));
     in.read((char*) &e.count, sizeof(int64_t));
 
     // check if entry.id = find(conceptid, value)

@@ -155,8 +155,8 @@ void UnitTest::testHash() {
   std::shared_ptr<Dictionary> dict = std::make_shared<Dictionary>(args_);
 
   std::string token = "Runs Vtach";
-  int32_t expected_h = 2154071813;
-  int32_t actual_h = dict->hash(token);
+  uint32_t expected_h = 2154071813;
+  uint32_t actual_h = dict->hash(token);
   addResult(testname + "::hash['" + token + "']",
             actual_h == expected_h,
             std::to_string(expected_h),
