@@ -110,8 +110,11 @@ class BaseSearch(object):
             soup = BeautifulSoup(response.text, "lxml")
 
             if total is None:
-                totalText = soup.select(BaseSearch.TOTAL_SELECTOR)[
-                    0].text
+                # there is no result
+                if len(soup.select(BaseSearch.TOTAL_SELECTOR)) == 0:
+                    break
+
+                totalText = soup.select(BaseSearch.TOTAL_SELECTOR)[0].text
                 total = int(re.sub("[', ]", "", re.search(
                     "(([0-9]+[', ])*[0-9]+)", totalText).group(1)))
             results = self.parseResults(

@@ -53,6 +53,7 @@ from src.search import BingSearch
 logger = logging.getLogger(__name__)
 
 CONCEPT_WEBPAGES_FILE_NAME = 'concept_webpage.csv'
+D_ITEMS_FILENAME = 'd_items.csv'
 
 
 def search_term(term, export_dir, count=100):
@@ -116,52 +117,101 @@ def export_concept_webpage(concept_webpage_dict, concept_webpage_fullpath):
     df.to_csv(concept_webpage_fullpath, index=False)
 
 
-def crawl_webpages(concept_dir, export_dir):
+def load_concept_webpage_mapping(concept_webpage_fullpath):
     """Summary
-    """
-    concept_fullpath = os.path.join(
-        concept_dir, CONCEPT_DEFINITION_FILENAME)
-    concept_webpage_fullpath = os.path.join(
-        concept_dir, CONCEPT_WEBPAGES_FILE_NAME)
 
+    Returns:
+        TYPE: Description
+
+    Args:
+        concept_dir (TYPE): Description
+    """
     concept_webpage_dict = dict()
     if os.path.isfile(concept_webpage_fullpath):
         logger.info('File %s exists', concept_webpage_fullpath)
-        df = pd.DataFrame.read_csv(concept_webpage_fullpath)
+        df = pd.read_csv(concept_webpage_fullpath)
         for item in df.to_dict('records'):
             concept_webpage_dict[item['conceptid']] = item['encrypted_urls']
 
-    d_items = get_d_items()
-    concept_definitions, _ = load_concept_definition(concept_fullpath)
+    return concept_webpage_dict
+
+
+def load_d_items(d_items_fullpath):
+    df = None
+    if os.path.isfile(d_items_fullpath):
+        df = pd.read_csv(d_items_fullpath)
+    else:
+        # load from database
+        df = get_d_items()
+        df.to_csv(d_items_fullpath)
+
+    return df
+
+
+def crawl_webpages(concept_dir, export_dir):
+    """Summary
+    """
+    concept_webpage_fullpath = os.path.join(concept_dir,
+                                            CONCEPT_WEBPAGES_FILE_NAME)
+    concept_webpage_dict = load_concept_webpage_mapping(
+        concept_webpage_fullpath)
+
+    logger.info('Already crawled %s concepts', len(concept_webpage_dict))
+
+    d_items = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
+
+    concept_definitions, _ = load_concept_definition(
+        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
     logger.info('Total concepts: %s', len(concept_definitions))
 
+    is_export_data = False
     for conceptid in concept_definitions.keys():
         if conceptid in concept_webpage_dict.keys():
-            logger.info('already crawled data for conceptid=%s', conceptid)
+            logger.debug('already crawled data for conceptid=%s', conceptid)
             continue
 
+        is_export_data = True
         item = d_items.loc[d_items['itemid'] == conceptid]
         if item.shape[0] == 1:
             label = item['label'].values[0]
+
+            if 'ApacheIV' in label:
+                logger.info('ignore conceptid=%s, label=%s', conceptid, label)
+                continue
+
             encrypted_urls = search_term(label, export_dir, count=50)
             logger.info('conceptid=%s, label=%s, nb_webpages=%s',
                         conceptid, label, len(encrypted_urls))
             concept_webpage_dict[conceptid] = ','.join(encrypted_urls)
 
-        if len(concept_webpage_dict) > 0 and len(concept_webpage_dict) % 10 == 0:
-            logger.info('DONE %s/%s', len(concept_webpage_dict),
-                        len(concept_definitions))
-            # export to files
-            export_concept_webpage(concept_webpage_dict,
-                                   concept_webpage_fullpath)
-
-    # export to files
-    export_concept_webpage(concept_webpage_dict, concept_webpage_fullpath)
+        # export to files
+        export_concept_webpage(concept_webpage_dict,
+                               concept_webpage_fullpath)
+        logger.info('DONE %s/%s', len(concept_webpage_dict),
+                    len(concept_definitions))
 
 
 def cluster():
     """Summary
     """
+    # TODO: parameters
     export_dir = '../data/webpages'
     concept_dir = '../data'
-    crawl_webpages(concept_dir, export_dir)
+
+    concept_definitions, _ = load_concept_definition(
+        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
+    logger.info('Total concept definitions: %s', len(concept_definitions))
+
+    concept_webpage_dict = load_concept_webpage_mapping(
+        os.path.join(concept_dir, CONCEPT_WEBPAGES_FILE_NAME))
+    logger.info('Crawled %s concepts', len(concept_webpage_dict))
+
+    # number of carevue concepts
+    nb_cv_concept = len(
+        [idx for idx in concept_webpage_dict.keys() if idx <= 220000])
+    logger.info('Number of carevue concepts: %s', nb_cv_concept)
+
+    nb_clusters = nb_cv_concept
+    if nb_cv_concept < len(concept_webpage_dict) / 2:
+        nb_clusters = len(concept_webpage_dict) - nb_cv_concept
+    logger.info('Number of nb_clusters:%s', nb_clusters)
