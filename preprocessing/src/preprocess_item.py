@@ -45,6 +45,7 @@ import pandas as pd
 import logging
 import urllib.parse
 import hashlib
+import re
 
 from src.db_util import *
 from src.preprocess import *
@@ -76,6 +77,13 @@ def search_term(term, export_dir, count=100):
 
     logger.info('Fetching first %s results for "%s"...', count, term)
     response = search.search(term, int(count * 1.5), prefetch_pages=True)
+
+    if response.total is None or response.total == 0:
+        logger.info(
+            'Try to replace special characters with whitespace from term="%s"',
+            term)
+        term = re.sub('[^A-Za-z0-9]+', ' ', term)
+        response = search.search(term, int(count * 1.5), prefetch_pages=True)
 
     logger.info("TOTAL: %s RESULTS", response.total)
     os.makedirs(export_dir, exist_ok=True)
@@ -109,7 +117,7 @@ def export_concept_webpage(concept_webpage_dict, concept_webpage_fullpath):
         concept_webpage_dict (TYPE): Description
         concept_webpage_fullpath (TYPE): Description
     """
-    logger.info('Export concept_webpage_dict to file')
+    logger.debug('Export concept_webpage_dict to file')
     df = pd.DataFrame([
         {'conceptid': c, 'encrypted_urls': w}
         for c, w in concept_webpage_dict.items()
