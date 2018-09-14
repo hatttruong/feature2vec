@@ -33,8 +33,18 @@ $ sudo python3 test_suite.py
 
 ## 2.1 Prepare data for merge tool
 
-!TODO
-Crawl google search result for each items (save to `SearchTermResults` table)
+* Crawl google search result for each items (save to files and store at `data/webpages`)
+
+```
+# crawl data
+python3 main.py crawl_webpages
+
+# preprocess before clustering
+python3 main.py tfidf_medical_webpages
+```
+
+* Cluster medical webpages, using **XXXX** algorithm
+
 Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
 
 ```
