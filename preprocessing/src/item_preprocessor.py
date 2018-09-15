@@ -223,3 +223,15 @@ def cluster():
     if nb_cv_concept < len(concept_webpage_dict) / 2:
         nb_clusters = len(concept_webpage_dict) - nb_cv_concept
     logger.info('Number of nb_clusters:%s', nb_clusters)
+
+    # load tfidf model
+    tfidf_vectorizer = TfidfGensimVectorizer(
+        dictionary_file='',
+        tfidf_model_path='')
+    logger.info('number of words in tfidf model: %s',
+                len(tfidf_vectorizer.token2id.keys()))
+
+
+
+
+
