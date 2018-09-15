@@ -69,8 +69,8 @@ def search_term(term, export_dir, count=100):
     Raises:
         e: Description
     """
-    IGNORED_SITES = ['scholar.google.com.vn']
-    IGNORED_EXTENSIONS = ['.pdf', '.doc', '.xls']
+    IGNORED_SITES = ['scholar.google.com.vn', 'es.scribd.com']
+    IGNORED_EXTENSIONS = ['.pdf', '.doc', '.xls', 'xlsx', '.txt']
     search = BingSearch(ignored_sites=IGNORED_SITES,
                         ignored_extensions=IGNORED_EXTENSIONS)
     i = 1
