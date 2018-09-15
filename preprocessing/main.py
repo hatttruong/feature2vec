@@ -9,7 +9,8 @@ import argparse
 
 from src.preprocess import *
 from src.configer import *
-from src.preprocess_item import cluster, crawl_webpages
+from src.item_preprocessor import cluster, crawl_webpages
+from src import tfidf
 
 Configer = Configer('setting.ini')
 logging.basicConfig(
@@ -28,7 +29,9 @@ if __name__ == '__main__':
     parser.add_argument(
         'action',
         choices=['define_concepts', 'update_chartevents',
-                 'create_train_dataset', 'crawl_webpages', 'cluster'],
+                 'create_train_dataset', 'crawl_webpages',
+                 'tfidf_medical_webpages',
+                 'cluster'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -59,6 +62,8 @@ if __name__ == '__main__':
         export_dir = '../data/webpages'
         concept_dir = '../data'
         crawl_webpages(concept_dir, export_dir)
-
+    elif args.action == 'tfidf_medical_webpages':
+        tfidf.train_tfidf(min_count=5, chunksize=5000, ngrams=(1, 1),
+                          model_dir='../models')
     elif args.action == 'cluster':
         cluster()
