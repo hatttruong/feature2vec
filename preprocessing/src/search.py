@@ -166,7 +166,7 @@ class BaseSearch(object):
             url = result["href"]
             title = result.text
 
-            if url[-4:] in self.ignored_extensions:
+            if url[-4:].lower() in self.ignored_extensions:
                 logger.debug('IGNORED LINK: %s', url)
                 continue
 
