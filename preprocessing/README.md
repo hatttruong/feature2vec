@@ -33,27 +33,7 @@ $ sudo python3 test_suite.py
 
 ## 2.1 Prepare data for merge tool
 
-* Crawl google search result for each items (save to files and store at `data/webpages`)
-
-```
-# crawl data
-python3 main.py crawl_webpages
-
-# preprocess before clustering
-python3 main.py tfidf_medical_webpages
-```
-
-* Cluster medical webpages, using **XXXX** algorithm
-
-Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
-
-```
-id
-name
-createdBy: 'SYS'
-```
-
-For each item, calculate min, max, percentile, export distributions image
+* **Step 1**: clone items information from `d_items` table to `jvn_item_mapping` table which has structure as follow:
 
 ```
 itemid
@@ -67,11 +47,39 @@ max
 percentile25th
 percentile50th
 percentile75th
-values
 distributionImg
 candidateGroupId
 groupId
 ```
+
+- With **numeric** item, calculate min, max, (25-50-75) percentile, export distributions image
+- With **category** item: copy fields `itemid, label, abbr, dbsource, linksto`
+
+```
+$ cd preprocessing
+$ python3 main.py prepare_numeric_item
+```
+
+* **Step 2**: Crawl google search result for each items (save to files and store at `data/webpages`)
+
+```
+# crawl data
+python3 main.py crawl_webpages
+
+# preprocess before clustering
+python3 main.py tfidf_medical_webpages
+```
+
+* **Step 3**: Cluster medical webpages, using **XXXX** algorithm: **TODO**
+
+Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
+
+```
+id
+name
+createdBy: 'SYS'
+```
+
 
 ## 2.2 Prepare data to train feature
 

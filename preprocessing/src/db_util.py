@@ -8,6 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def get_d_items():
     """
     Get all d_items
@@ -18,6 +19,7 @@ def get_d_items():
     query = 'SELECT * FROM d_items;'
     df = execute_query_to_df(query)
     return df
+
 
 def get_chartevents_by_ids(item_ids, output_path=None):
     """
@@ -154,6 +156,47 @@ def load_concepts():
     return df
 
 
+def load_actual_items():
+    """
+    return list of item_id which is actually used in chartevents, input, output
+    """
+    linksto_list = [
+        # 'outputevents',
+        # 'inputevents_cv',
+        # 'inputevents_mv',
+        'chartevents'
+    ]
+    # query = "SELECT DISTINCT conceptid, label, linksto \
+    #     FROM jvn_concepts WHERE linksto IN ('%s') " % "', '".join(linksto)
+    queries = list()
+    for linksto in linksto_list:
+        if linksto is 'chartevents':
+            queries.append("SELECT DISTINCT D.itemid, D.label, \
+                'chartevents' as linksto \
+                FROM chartevents as C \
+                    INNER JOIN d_items as D ON C.itemid = D.itemid\
+                WHERE C.value IS NOT NULL ")
+        elif linksto is 'outputevents':
+            # TODO
+            pass
+        elif linksto is 'inputevents_cv':
+            # TODO
+            pass
+        elif linksto is 'inputevents_mv':
+            # TODO
+            pass
+
+    query = ''
+    if len(queries) > 1:
+        queries = ['(%s)' % q for q in queries]
+        query = ' UNION ALL '.join(queries) + ' ORDER BY linksto, itemid'
+    elif len(queries) == 1:
+        query = queries[0]
+
+    df = execute_query_to_df(query)
+    return df
+
+
 def load_item2concepts():
     """
     return dataframe of item_id, itemid
@@ -171,6 +214,7 @@ def load_values_of_concept(conceptid, linksto):
 
     Args:
         conceptid (TYPE): Description
+        linksto (TYPE): Description
 
     Returns:
         TYPE: Description
@@ -202,3 +246,25 @@ def load_values_of_concept(conceptid, linksto):
 
     df = execute_query_to_df(query)
     return df
+
+
+def insert_jvn_item_mapping(itemid, label, abbr, dbsource, linksto, isnumeric,
+                            min_value=None, max_value=None,
+                            percentile25th=None, percentile50th=None,
+                            percentile75th=None, distributionImg=None):
+    insert_query = ''
+    if isnumeric:
+        insert_query = 'INSERT INTO jvn_item_mapping \
+            (itemid, label, abbr, dbsource, linksto, isnumeric, min, max, \
+            percentile25th, percentile50th, percentile75th, distributionImg) \
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % (
+                itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
+                max_value, percentile25th, percentile50th, percentile75th,
+                distributionImg)
+    else:
+        insert_query = 'INSERT INTO jvn_item_mapping \
+            (itemid, label, abbr, dbsource, linksto, isnumeric) \
+            VALUES (%s, %s, %s, %s, %s, %s)' % (
+                itemid, label, abbr, dbsource, linksto, isnumeric)
+
+    execute_non_query(insert_query)

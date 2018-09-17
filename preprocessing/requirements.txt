@@ -10,3 +10,4 @@ beautifulsoup4
 boilerpipe3
 nltk
 gensim
+fuzzywuzzy

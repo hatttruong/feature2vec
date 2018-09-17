@@ -46,10 +46,15 @@ import logging
 import urllib.parse
 import hashlib
 import re
+import seaborn as sns
+import matplotlib.pyplot as plt
+import time
 
 from src.db_util import *
 from src.preprocess import *
 from src.search import BingSearch
+
+sns.set(color_codes=True)
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +178,8 @@ def crawl_webpages(concept_dir, export_dir):
     logger.info('Total concepts: %s', len(concept_definitions))
 
     is_export_data = False
-    for conceptid in concept_definitions.keys():
+    conceptids = [c_id for c_id in concept_definitions.keys()]
+    for conceptid in conceptids.reverse():
         if conceptid in concept_webpage_dict.keys():
             logger.debug('already crawled data for conceptid=%s', conceptid)
             continue
@@ -200,7 +206,8 @@ def crawl_webpages(concept_dir, export_dir):
 
 
 def cluster():
-    """Summary
+    """
+    Create candidate group and save to database
     """
     # TODO: parameters
     export_dir = '../data/webpages'
@@ -232,6 +239,81 @@ def cluster():
                 len(tfidf_vectorizer.token2id.keys()))
 
 
+def prepare_item_info():
+    """
+    Summary
+        Numeric items:
+                calculate min, max, percentile, export distributions image
 
+        Category & numeric items:
+            Save these information to database (table `jvn_item_mapping`):
+                itemid
+                label
+                abbr
+                dbsource
+                linksto
+                isnumeric
 
+    """
+    logger.info('start prepare_numeric_item_info')
+    export_dir = '../data/webpages'
+    concept_dir = '../data'
+    distribution_dir = '../data/distributions'
 
+    d_items_df = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
+
+    logger.info('start load_actual_items')
+    actual_items_df = load_actual_items()
+    logger.info('done load_actual_items')
+
+    t0 = time()
+    for index, row in actual_items_df.iterrows():
+        logger.info('handling %s/%s...', index + 1, actual_items_df.shape[0])
+
+        itemid = row['itemid']
+        d_item = d_items_df.loc[d_items_df['itemid'] == itemid]
+
+        # load values of itemid
+        df = load_values_of_concept(itemid, 'chartevents')
+
+        # handle numeric item
+        if df.isnull().valuenum.sum() <= df.shape[0] * 0.05:
+
+            # valuenum contained NaN
+            df = df[~df['valuenum'].isnull()]
+            values = df.valuenum.tolist()
+
+            min_value = math.floor(np.percentile(values, 5) * 10) / 10
+            max_value = math.floor(np.percentile(values, 95) * 10) / 10
+            percentile_25 = math.floor(np.percentile(values, 25) * 10) / 10
+            percentile_50 = math.floor(np.percentile(values, 50) * 10) / 10
+            percentile_75 = math.floor(np.percentile(values, 75) * 10) / 10
+
+            dist_fname = '%s.png' % itemid
+            sns_plot = sns.distplot(values)
+            fig = sns_plot.get_figure()
+            fig.savefig(os.path.join(distribution_dir, dist_fname))
+
+            logger.info(
+                'itemid=%s, min=%s, 25p=%s, 50p=%s, 75p=%s, max=%s, dist=%s',
+                itemid, min_value, percentile_25, percentile_50, percentile_75,
+                max_value, dist_fname)
+
+            # insert data to database
+            insert_jvn_item_mapping(
+                itemid, d_item['label'], d_item['abbreviation'],
+                d_item['dbsource'], row['linksto'], True,
+                min_value=min_value, max_value=max_value,
+                percentile25th=percentile_25, percentile50th=percentile_50,
+                percentile75th=percentile_75, distributionImg=dist_fname)
+        else:
+            # handle category item
+            insert_jvn_item_mapping(
+                itemid, d_item['label'], d_item['abbreviation'],
+                d_item['dbsource'], row['linksto'], False)
+
+        logger.info('***Done %s/%s, avg. duration: %0.3fs/item ***',
+                    index + 1, actual_items_df.shape[0],
+                    (time() - t0)/(index + 1))
+
+    logger.info('done in %0.3fs', (time() - t0))

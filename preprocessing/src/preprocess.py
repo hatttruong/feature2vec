@@ -148,6 +148,7 @@ def check_is_number(s):
 def create_concept_object(conceptid, name, is_number, values):
     concept_obj = dict()
     concept_obj['conceptid'] = conceptid
+    concept_obj['name'] = name
     concept_obj['type'] = 0 if is_number else 1
     concept_obj['segments'] = list()
     concept_obj['hashmaps'] = list()
