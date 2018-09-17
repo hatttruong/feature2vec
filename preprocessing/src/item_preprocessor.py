@@ -1,38 +1,12 @@
 """Summary
-Preprocessing including following steps:
-    1. Grouping:
-        1.1 find similar item names: using fuzzy, or word embedding.
-            note: one group must contain items belonging to the same "linksto"
-            result: group of similar item ids in dictionary
-            example: {group_index:
-                [(itemid, label, abbreviation), (itemid, name, abbreviation),...]}
-            output: similar_items_step1
-        1.2 compare distribution:
-            using kullback-leiber to compute similarity between each pair in a group
-            define threshold
-            output: similar_items_step2
-        1.3 review manually
-            output: similar_items_final
+Item_preprocessor contains functions to merge d_items of MIMIC database:
 
-# Step 1: enrich label
-for each word w in "label":
-    if it is not in English word:
-search "w" in google use:
-    https:
-        //www.medilexicon.com / abbreviations?search = PCA & target = abbreviations
-select the top result
+- prepare_item_info: copy basic information of items from d_items table to
+                     insert_jvn_items table
+- crawl_webpages: crawl webpages which are result of searching medical terms
 
-
-# Step 2: crawl documents
-For each "label":
-    search with n - grams(2, 3, .., length of label)
-    get a collections of documents
-
-# Step 3: calculate similarity
-For each "label":
-    Use a cluster algorithms to cluster documents of "label" and each candidate similar label, K = 2
-    choose "candidate" with score > threshold
-
+- cluster: create group of items based on some criterions
+           and insert to jvn_concepts and jvn_item_mapping
 
 """
 
@@ -48,7 +22,7 @@ import hashlib
 import re
 import seaborn as sns
 import matplotlib.pyplot as plt
-import time
+from time import time
 
 from src.db_util import *
 from src.preprocess import *
@@ -158,7 +132,14 @@ def load_d_items(d_items_fullpath):
         df = get_d_items()
         df.to_csv(d_items_fullpath)
 
-    return df
+    # return list of dict [{'col1': 1.0, 'col2': 0.5}, {'col1': 2.0, 'col2':
+    # 0.75}]
+    temp = df.to_dict('records')
+    d_items_dict = dict()
+    for item in temp:
+        d_items_dict[item['itemid']] = item
+
+    return d_items_dict
 
 
 def crawl_webpages(concept_dir, export_dir):
@@ -171,7 +152,7 @@ def crawl_webpages(concept_dir, export_dir):
 
     logger.info('Already crawled %s concepts', len(concept_webpage_dict))
 
-    d_items = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
+    d_items_dict = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
 
     concept_definitions, _ = load_concept_definition(
         os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
@@ -185,9 +166,9 @@ def crawl_webpages(concept_dir, export_dir):
             continue
 
         is_export_data = True
-        item = d_items.loc[d_items['itemid'] == conceptid]
+        item = d_items_dict[conceptid]
         if item.shape[0] == 1:
-            label = item['label'].values[0]
+            label = item['label']
 
             if 'ApacheIV' in label:
                 logger.info('ignore conceptid=%s, label=%s', conceptid, label)
@@ -208,6 +189,11 @@ def crawl_webpages(concept_dir, export_dir):
 def cluster():
     """
     Create candidate group and save to database
+    Algorithm:
+        - compute similarity between labels (fuzzy), select top 5 and filter with is_numeric
+        - if it is numeric, compute similarity between distribution
+        - if it is category, compute similarity between category values (fuzzy)
+        - compute similarity between medical_webpages
     """
     # TODO: parameters
     export_dir = '../data/webpages'
@@ -255,12 +241,13 @@ def prepare_item_info():
                 isnumeric
 
     """
-    logger.info('start prepare_numeric_item_info')
+    # TODO: parameters
     export_dir = '../data/webpages'
     concept_dir = '../data'
     distribution_dir = '../data/distributions'
 
-    d_items_df = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
+    logger.info('start prepare_numeric_item_info')
+    d_items_dict = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
 
     logger.info('start load_actual_items')
     actual_items_df = load_actual_items()
@@ -271,7 +258,10 @@ def prepare_item_info():
         logger.info('handling %s/%s...', index + 1, actual_items_df.shape[0])
 
         itemid = row['itemid']
-        d_item = d_items_df.loc[d_items_df['itemid'] == itemid]
+        d_item = d_items_dict[itemid]
+        label = d_item['label']
+        abbr = d_item['abbreviation']
+        dbsource = d_item['dbsource']
 
         # load values of itemid
         df = load_values_of_concept(itemid, 'chartevents')
@@ -289,10 +279,22 @@ def prepare_item_info():
             percentile_50 = math.floor(np.percentile(values, 50) * 10) / 10
             percentile_75 = math.floor(np.percentile(values, 75) * 10) / 10
 
-            dist_fname = '%s.png' % itemid
-            sns_plot = sns.distplot(values)
-            fig = sns_plot.get_figure()
-            fig.savefig(os.path.join(distribution_dir, dist_fname))
+            dist_fname = ''
+
+            if len(values) > 1:
+                try:
+                    dist_fname = '%s.png' % itemid
+                    sns_plot = sns.distplot(values)
+                    fig = sns_plot.get_figure()
+                    fig.savefig(os.path.join(distribution_dir, dist_fname))
+                except Exception as e:
+                    logger.error('cannot plot distribution of item=%s \nerror: %s',
+                                 itemid, e)
+                    dist_fname = ''
+            else:
+                logger.warn(
+                    'cannot plot distribution of item=%s, nb of values=%s',
+                    itemid, len(values))
 
             logger.info(
                 'itemid=%s, min=%s, 25p=%s, 50p=%s, 75p=%s, max=%s, dist=%s',
@@ -300,20 +302,18 @@ def prepare_item_info():
                 max_value, dist_fname)
 
             # insert data to database
-            insert_jvn_item_mapping(
-                itemid, d_item['label'], d_item['abbreviation'],
-                d_item['dbsource'], row['linksto'], True,
+            insert_jvn_items(
+                itemid, label, abbr, dbsource, row['linksto'], True,
                 min_value=min_value, max_value=max_value,
                 percentile25th=percentile_25, percentile50th=percentile_50,
                 percentile75th=percentile_75, distributionImg=dist_fname)
         else:
             # handle category item
-            insert_jvn_item_mapping(
-                itemid, d_item['label'], d_item['abbreviation'],
-                d_item['dbsource'], row['linksto'], False)
+            insert_jvn_items(
+                itemid, label, abbr, dbsource, row['linksto'], False)
 
         logger.info('***Done %s/%s, avg. duration: %0.3fs/item ***',
                     index + 1, actual_items_df.shape[0],
-                    (time() - t0)/(index + 1))
+                    (time() - t0) / (index + 1))
 
     logger.info('done in %0.3fs', (time() - t0))

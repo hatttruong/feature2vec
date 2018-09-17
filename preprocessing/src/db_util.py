@@ -248,23 +248,23 @@ def load_values_of_concept(conceptid, linksto):
     return df
 
 
-def insert_jvn_item_mapping(itemid, label, abbr, dbsource, linksto, isnumeric,
+def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
                             min_value=None, max_value=None,
                             percentile25th=None, percentile50th=None,
                             percentile75th=None, distributionImg=None):
     insert_query = ''
     if isnumeric:
-        insert_query = 'INSERT INTO jvn_item_mapping \
+        insert_query = "INSERT INTO jvn_items \
             (itemid, label, abbr, dbsource, linksto, isnumeric, min, max, \
-            percentile25th, percentile50th, percentile75th, distributionImg) \
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)' % (
+            percentile25th, percentile50th, percentile75th, distribution_img) \
+            VALUES (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s')" % (
                 itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
                 max_value, percentile25th, percentile50th, percentile75th,
                 distributionImg)
     else:
-        insert_query = 'INSERT INTO jvn_item_mapping \
+        insert_query = "INSERT INTO jvn_items \
             (itemid, label, abbr, dbsource, linksto, isnumeric) \
-            VALUES (%s, %s, %s, %s, %s, %s)' % (
+            VALUES (%s, '%s', '%s', '%s', '%s', '%s')" % (
                 itemid, label, abbr, dbsource, linksto, isnumeric)
 
     execute_non_query(insert_query)

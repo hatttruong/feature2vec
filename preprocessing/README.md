@@ -33,7 +33,7 @@ $ sudo python3 test_suite.py
 
 ## 2.1 Prepare data for merge tool
 
-* **Step 1**: clone items information from `d_items` table to `jvn_item_mapping` table which has structure as follow:
+* **Step 1**: clone items information from `d_items` table to `jvn_items` table which has structure as follow:
 
 ```
 itemid
@@ -48,8 +48,6 @@ percentile25th
 percentile50th
 percentile75th
 distributionImg
-candidateGroupId
-groupId
 ```
 
 - With **numeric** item, calculate min, max, (25-50-75) percentile, export distributions image

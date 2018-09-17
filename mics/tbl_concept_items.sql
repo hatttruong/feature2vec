@@ -7,8 +7,8 @@ CREATE TABLE jvn_concepts(
 );
 
 -- create mapping_concept table
-DROP TABLE IF EXISTS jvn_item_mapping CASCADE;
-CREATE TABLE jvn_item_mapping(
+DROP TABLE IF EXISTS jvn_items CASCADE;
+CREATE TABLE jvn_items(
     itemid integer,
     label varchar(200),
     abbr varchar(100),
@@ -23,10 +23,17 @@ CREATE TABLE jvn_item_mapping(
     percentile75th double precision,
     category_values varchar(500),
     distribution_img varchar(500),
-    candidate_conceptid integer REFERENCES jvn_concepts(conceptid),
-    conceptid integer REFERENCES jvn_concepts(conceptid),
     PRIMARY KEY (itemid)
 );
+
+-- create mapping_concept table
+DROP TABLE IF EXISTS jvn_item_mapping CASCADE;
+CREATE TABLE jvn_item_mapping(
+    itemid integer,
+    conceptid integer REFERENCES jvn_concepts(conceptid),
+    PRIMARY KEY (itemid, conceptid)
+);
+
 
 -- create mapping value table
 DROP TABLE IF EXISTS jvn_value_mapping CASCADE;
