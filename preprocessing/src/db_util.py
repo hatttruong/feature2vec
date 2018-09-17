@@ -171,8 +171,9 @@ def load_actual_items():
     queries = list()
     for linksto in linksto_list:
         if linksto is 'chartevents':
-            queries.append("SELECT DISTINCT D.itemid, D.label, \
-                'chartevents' as linksto \
+            queries.append(
+                "SELECT DISTINCT D.itemid, D.label, \
+                    'chartevents' as linksto \
                 FROM chartevents as C \
                     INNER JOIN d_items as D ON C.itemid = D.itemid\
                 WHERE C.value IS NOT NULL ")
@@ -248,23 +249,110 @@ def load_values_of_concept(conceptid, linksto):
     return df
 
 
+def load_values_of_itemid(itemid, linksto):
+    """
+    load all values of item_id from chartevents table
+
+    Args:
+        itemid (TYPE): Description
+        linksto (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+
+    condition = 'itemid = %s' % itemid
+    query = ''
+    if linksto == 'chartevents':
+        query = "SELECT itemid, value, valuenum FROM chartevents \
+            WHERE value is not NULL AND (error is NULL or error != 1) \
+                AND %s " % condition
+
+    elif linksto == 'outputevents':
+        query = "SELECT itemid, value, value as valuenum FROM outputevents \
+            WHERE value is not NULL AND (iserror is NULL OR iserror != 1) \
+                AND %s " % condition
+
+    elif linksto == 'inputevents':
+        query = "SELECT itemid, amount as value, amount as valuenum \
+            FROM inputevents_cv \
+            WHERE amount is not NULL AND %s \
+            UNION ALL \
+            SELECT itemid, amount as value, amount as valuenum \
+            FROM inputevents_mv \
+            WHERE amount is not NULL AND %s " % (condition, condition)
+
+    df = execute_query_to_df(query)
+    return df
+
+
+def get_auto_clustered_itemids():
+    query = 'SELECT DISTINCT itemid \
+        FROM jvn_item_mapping as i \
+            INNER JOIN jvn_concepts as c ON i.conceptid=c.conceptid \
+        WHERE i.value_score >= 90 '
+    df = execute_query_to_df(query)
+
+    if df.shape[0] > 0:
+        return df['itemid'].tolist()
+    else:
+        return []
+
+
 def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
-                            min_value=None, max_value=None,
-                            percentile25th=None, percentile50th=None,
-                            percentile75th=None, distributionImg=None):
+                     min_value=None, max_value=None,
+                     percentile25th=None, percentile50th=None,
+                     percentile75th=None, distributionImg=None):
     insert_query = ''
+    label = str(label).replace("'", "''")
+    abbr = str(abbr).replace("'", "''")
     if isnumeric:
         insert_query = "INSERT INTO jvn_items \
             (itemid, label, abbr, dbsource, linksto, isnumeric, min, max, \
             percentile25th, percentile50th, percentile75th, distribution_img) \
-            VALUES (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s')" % (
-                itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
-                max_value, percentile25th, percentile50th, percentile75th,
-                distributionImg)
+            VALUES (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s') \
+            ON CONFLICT(itemid) DO NOTHING" % (
+            itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
+            max_value, percentile25th, percentile50th, percentile75th,
+            distributionImg)
     else:
         insert_query = "INSERT INTO jvn_items \
             (itemid, label, abbr, dbsource, linksto, isnumeric) \
-            VALUES (%s, '%s', '%s', '%s', '%s', '%s')" % (
-                itemid, label, abbr, dbsource, linksto, isnumeric)
+            VALUES (%s, '%s', '%s', '%s', '%s', '%s') \
+            ON CONFLICT(itemid) DO NOTHING" % (
+            itemid, label, abbr, dbsource, linksto, isnumeric)
 
     execute_non_query(insert_query)
+
+
+def insert_generated_concept(concept_obj):
+    """Summary
+
+    Args:
+        concept_obj (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+    # insert concept
+    insert_query = "INSERT INTO jvn_concepts \
+        (concept, isnumeric, linksto, created_by) \
+        VALUES ('%s', %s, '%s', 'SYS')" % (
+        concept_obj['concept'].replace("'", "''"),
+        concept_obj['isnumeric'],
+        concept_obj['linksto'])
+    execute_non_query(insert_query)
+
+    # get conceptid
+    query = "SELECT last_value FROM jvn_concepts_conceptid_seq"
+    df = execute_query_to_df(query)
+    conceptid = df['last_value'].tolist()[0]
+
+    # insert jvn_item_mapping
+    for itemid, score in concept_obj['items'].items():
+        insert_query = "INSERT INTO jvn_item_mapping \
+            (itemid, conceptid, label_score, value_score) \
+            VALUES (%s, %s, %s, %s)" % (
+            itemid, conceptid, score['label_score'], score['value_score'])
+        execute_non_query(insert_query)
+

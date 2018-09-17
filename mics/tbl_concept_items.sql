@@ -1,13 +1,18 @@
--- create concept table
+DROP TABLE IF EXISTS jvn_item_mapping CASCADE;
+DROP TABLE IF EXISTS jvn_value_mapping CASCADE;
 DROP TABLE IF EXISTS jvn_concepts CASCADE;
+DROP TABLE IF EXISTS jvn_items CASCADE;
+
+-- create concept table
 CREATE TABLE jvn_concepts(
     conceptid SERIAL PRIMARY KEY,
     concept varchar(200) NOT NULL,
+    isnumeric boolean,
+    linksto varchar(50),
     created_by varchar(100)
 );
 
 -- create mapping_concept table
-DROP TABLE IF EXISTS jvn_items CASCADE;
 CREATE TABLE jvn_items(
     itemid integer,
     label varchar(200),
@@ -27,18 +32,18 @@ CREATE TABLE jvn_items(
 );
 
 -- create mapping_concept table
-DROP TABLE IF EXISTS jvn_item_mapping CASCADE;
 CREATE TABLE jvn_item_mapping(
-    itemid integer,
+    itemid integer REFERENCES jvn_items(itemid),
     conceptid integer REFERENCES jvn_concepts(conceptid),
+    label_score double precision,
+    value_score double precision,
     PRIMARY KEY (itemid, conceptid)
 );
 
 
 -- create mapping value table
-DROP TABLE IF EXISTS jvn_value_mapping CASCADE;
 CREATE TABLE jvn_value_mapping(
-    conceptid integer,
+    conceptid integer REFERENCES jvn_concepts(conceptid),
     value varchar(200),
     unified_value varchar(200),
     PRIMARY KEY (conceptid, value)

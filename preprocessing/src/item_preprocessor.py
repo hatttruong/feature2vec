@@ -23,6 +23,10 @@ import re
 import seaborn as sns
 import matplotlib.pyplot as plt
 from time import time
+from scipy import stats
+import numpy as np
+from fuzzywuzzy import fuzz
+import operator
 
 from src.db_util import *
 from src.preprocess import *
@@ -32,8 +36,10 @@ sns.set(color_codes=True)
 
 logger = logging.getLogger(__name__)
 
+SEPERATED_ID = 220000
 CONCEPT_WEBPAGES_FILE_NAME = 'concept_webpage.csv'
 D_ITEMS_FILENAME = 'd_items.csv'
+ACTUAL_ITEMS_FILENAME = 'actual_items.csv'
 
 
 def search_term(term, export_dir, count=100):
@@ -142,6 +148,33 @@ def load_d_items(d_items_fullpath):
     return d_items_dict
 
 
+def load_actual_items_from_file(actual_items_fullpath):
+    """Summary
+
+    Args:
+        actual_items_fullpath (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+    df = None
+    if os.path.isfile(actual_items_fullpath):
+        df = pd.read_csv(actual_items_fullpath)
+    else:
+        # load from database
+        df = load_actual_items()
+        df.to_csv(actual_items_fullpath)
+
+    # return list of dict [{'col1': 1.0, 'col2': 0.5}, {'col1': 2.0, 'col2':
+    # 0.75}]
+    temp = df.to_dict('records')
+    actual_items_dict = dict()
+    for item in temp:
+        actual_items_dict[item['itemid']] = item
+
+    return actual_items_dict
+
+
 def crawl_webpages(concept_dir, export_dir):
     """Summary
     """
@@ -189,6 +222,7 @@ def crawl_webpages(concept_dir, export_dir):
 def cluster():
     """
     Create candidate group and save to database
+
     Algorithm:
         - compute similarity between labels (fuzzy), select top 5 and filter with is_numeric
         - if it is numeric, compute similarity between distribution
@@ -199,121 +233,238 @@ def cluster():
     export_dir = '../data/webpages'
     concept_dir = '../data'
 
-    concept_definitions, _ = load_concept_definition(
-        os.path.join(concept_dir, CONCEPT_DEFINITION_FILENAME))
-    logger.info('Total concept definitions: %s', len(concept_definitions))
-
-    concept_webpage_dict = load_concept_webpage_mapping(
-        os.path.join(concept_dir, CONCEPT_WEBPAGES_FILE_NAME))
-    logger.info('Crawled %s concepts', len(concept_webpage_dict))
-
-    # number of carevue concepts
-    nb_cv_concept = len(
-        [idx for idx in concept_webpage_dict.keys() if idx <= 220000])
-    logger.info('Number of carevue concepts: %s', nb_cv_concept)
-
-    nb_clusters = nb_cv_concept
-    if nb_cv_concept < len(concept_webpage_dict) / 2:
-        nb_clusters = len(concept_webpage_dict) - nb_cv_concept
-    logger.info('Number of nb_clusters:%s', nb_clusters)
-
-    # load tfidf model
-    tfidf_vectorizer = TfidfGensimVectorizer(
-        dictionary_file='',
-        tfidf_model_path='')
-    logger.info('number of words in tfidf model: %s',
-                len(tfidf_vectorizer.token2id.keys()))
-
-
-def prepare_item_info():
-    """
-    Summary
-        Numeric items:
-                calculate min, max, percentile, export distributions image
-
-        Category & numeric items:
-            Save these information to database (table `jvn_item_mapping`):
-                itemid
-                label
-                abbr
-                dbsource
-                linksto
-                isnumeric
-
-    """
-    # TODO: parameters
-    export_dir = '../data/webpages'
-    concept_dir = '../data'
-    distribution_dir = '../data/distributions'
-
-    logger.info('start prepare_numeric_item_info')
     d_items_dict = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
 
-    logger.info('start load_actual_items')
-    actual_items_df = load_actual_items()
-    logger.info('done load_actual_items')
+    logger.info('start load_actual_items_from_file')
+    actual_items_dict = load_actual_items_from_file(
+        os.path.join(concept_dir, ACTUAL_ITEMS_FILENAME))
+    logger.info('done load_actual_items_from_file')
 
-    t0 = time()
-    for index, row in actual_items_df.iterrows():
-        logger.info('handling %s/%s...', index + 1, actual_items_df.shape[0])
+    # load clustered items
+    clustered_itemids = get_auto_clustered_itemids()
+    logger.info('clustered %s/%s items', len(clustered_itemids),
+                len(actual_items_dict))
 
-        itemid = row['itemid']
-        d_item = d_items_dict[itemid]
-        label = d_item['label']
-        abbr = d_item['abbreviation']
-        dbsource = d_item['dbsource']
+    # remove clustered items from actual_items_dict
+    for itemid in clustered_itemids:
+        del actual_items_dict[itemid]
+    logger.info('remaining %s items in total (CV and MV)',
+                len(actual_items_dict))
 
-        # load values of itemid
-        df = load_values_of_concept(itemid, 'chartevents')
+    item_with_values = dict()
+    done_cv_items = list()
+    total_cv_items = len(
+        [_ for _ in actual_items_dict.keys() if _ <= SEPERATED_ID])
 
-        # handle numeric item
-        if df.isnull().valuenum.sum() <= df.shape[0] * 0.05:
+    for itemid, item in actual_items_dict.items():
 
-            # valuenum contained NaN
-            df = df[~df['valuenum'].isnull()]
-            values = df.valuenum.tolist()
+        # for each CareVue, find its similar items which can be both CV and MV
+        if itemid <= SEPERATED_ID and itemid not in done_cv_items:
+            # get top items which have similar label
+            candidates = compute_label_similarity(itemid, actual_items_dict,
+                                                  d_items_dict, top_n=5)
+            compute_value_similarity(itemid, candidates, item['linksto'],
+                                     item_with_values)
 
-            min_value = math.floor(np.percentile(values, 5) * 10) / 10
-            max_value = math.floor(np.percentile(values, 95) * 10) / 10
-            percentile_25 = math.floor(np.percentile(values, 25) * 10) / 10
-            percentile_50 = math.floor(np.percentile(values, 50) * 10) / 10
-            percentile_75 = math.floor(np.percentile(values, 75) * 10) / 10
+            candidates[itemid] = {'value_score': 100, 'label_score': 100}
 
-            dist_fname = ''
+            # insert to database
+            concept_obj = {
+                'concept': actual_items_dict[itemid]['label'],
+                'isnumeric': item_with_values[itemid]['is_numeric'],
+                'linksto': actual_items_dict[itemid]['linksto'],
+                'items': candidates
+            }
+            logger.info('create concept with items: %s', str(candidates))
+            insert_generated_concept(concept_obj)
 
-            if len(values) > 1:
-                try:
-                    dist_fname = '%s.png' % itemid
-                    sns_plot = sns.distplot(values)
-                    fig = sns_plot.get_figure()
-                    fig.savefig(os.path.join(distribution_dir, dist_fname))
-                except Exception as e:
-                    logger.error('cannot plot distribution of item=%s \nerror: %s',
-                                 itemid, e)
-                    dist_fname = ''
-            else:
-                logger.warn(
-                    'cannot plot distribution of item=%s, nb of values=%s',
-                    itemid, len(values))
+            # update done_cv_items
+            for idx, score in candidates.items():
+                if score['value_score'] >= 90:
+                    done_cv_items.append(idx)
 
-            logger.info(
-                'itemid=%s, min=%s, 25p=%s, 50p=%s, 75p=%s, max=%s, dist=%s',
-                itemid, min_value, percentile_25, percentile_50, percentile_75,
-                max_value, dist_fname)
+            logger.info('***REMAINING %s ITEMS***',
+                        total_cv_items - len(done_cv_items))
 
-            # insert data to database
-            insert_jvn_items(
-                itemid, label, abbr, dbsource, row['linksto'], True,
-                min_value=min_value, max_value=max_value,
-                percentile25th=percentile_25, percentile50th=percentile_50,
-                percentile75th=percentile_75, distributionImg=dist_fname)
+
+def export_distribution_image(values, itemid):
+    """Summary
+
+    Args:
+        values (TYPE): Description
+        itemid (TYPE): Description
+    """
+    distribution_dir = '../data/distributions'
+
+    if len(values) <= 1:
+        return
+
+    min_value = math.floor(np.percentile(values, 5) * 10) / 10
+    max_value = math.floor(np.percentile(values, 95) * 10) / 10
+    dist_values = [v for v in values if v >= min_value and v <= max_value]
+    dist_fname = ''
+    try:
+        dist_fname = '%s.png' % itemid
+        sns_plot = sns.distplot(dist_values)
+        fig = sns_plot.get_figure()
+        fig.savefig(os.path.join(distribution_dir, dist_fname))
+        fig.clear()
+    except Exception as e:
+        logger.error('export distribution image: %s', e)
+        dist_fname = ''
+    return dist_fname
+
+
+def compute_label_similarity(itemid, actual_items_dict, d_items_dict, top_n=5):
+    """Summary
+
+    Args:
+        itemid (TYPE): Description
+        actual_items_dict (TYPE): Description
+        d_items_dict (TYPE): Description
+        top_n (int, optional): Description
+
+    Returns:
+        dict: {itemid: score}
+    """
+    logger.info('compute_label_similarity: %s', itemid)
+
+    label = d_items_dict[itemid]['label'].lower()
+    label_scores = list()
+    for compared_id in actual_items_dict.keys():
+        if compared_id != itemid:
+            compared_label = d_items_dict[compared_id]['label'].lower()
+            s = fuzz.partial_token_set_ratio(label, compared_label)
+            label_scores.append((compared_id, s, compared_label))
+
+    label_scores = sorted(
+        label_scores, key=operator.itemgetter(1), reverse=True)
+    label_scores = label_scores[:top_n] if len(
+        label_scores) >= top_n else label_scores
+
+    candidates = dict()
+    for item in label_scores:
+        candidates[item[0]] = {'label_score': item[1]}
+
+    return candidates
+
+
+def compute_value_similarity(itemid, candidates, linksto, item_with_values):
+    """Summary
+
+    Args:
+        itemid (TYPE): Description
+        candidates (dict): {itemid: {label_score: ....}}
+        item_with_values (TYPE): Description
+    """
+    logger.info('compute_value_similarity: %s', itemid)
+
+    if itemid not in item_with_values.keys():
+        item_with_values[itemid] = get_item_with_values(itemid, linksto)
+    item = item_with_values[itemid]
+
+    values = sorted(item['values'])
+
+    del_candidate_ids = list()
+    for candidate_id, candidate in candidates.items():
+        if candidate_id not in item_with_values.keys():
+            item_with_values[candidate_id] = get_item_with_values(candidate_id,
+                                                                  linksto)
+        candidate = item_with_values[candidate_id]
+
+        if item['is_numeric'] != candidate['is_numeric']:
+            logger.info('delete candidate because it is not the same type')
+            del_candidate_ids.append(candidate_id)
+            continue
+
+        candidate_values = sorted(candidate['values'])
+        if item['is_numeric']:
+            # compare 2 distribution
+            s = stats.ks_2samp(values, candidate_values)[1] * 100
         else:
-            # handle category item
-            insert_jvn_items(
-                itemid, label, abbr, dbsource, row['linksto'], False)
+            # compare 2 string
+            s = fuzz.ratio(' '.join(values), ' '.join(candidate_values))
 
-        logger.info('***Done %s/%s, avg. duration: %0.3fs/item ***',
-                    index + 1, actual_items_df.shape[0],
-                    (time() - t0) / (index + 1))
+        candidates[candidate_id]['value_score'] = s
 
-    logger.info('done in %0.3fs', (time() - t0))
+    for del_id in del_candidate_ids:
+        del candidates[del_id]
+
+
+def get_item_with_values(itemid, linksto):
+    """
+    Load all its values, compute its pdf if it is numeric,
+    get distinct values if it is categoric
+
+    Args:
+        itemid (TYPE): Description
+
+    Returns:
+        dict: Description
+    """
+    logger.info('get_item_with_values: %s', locals())
+
+    values = None
+    is_numeric = None
+    df = load_values_of_itemid(itemid, linksto)
+
+    if df.isnull().valuenum.sum() <= df.shape[0] * 0.05:
+        is_numeric = True
+
+        # numeric
+        df = df[~df['valuenum'].isnull()]
+        values = df.valuenum.tolist()
+    else:
+        # category
+        is_numeric = False
+        df = df[~df['value'].isnull()]
+        values = df.value.unique().tolist()
+
+    insert_item_info(itemid, values, is_numeric, linksto)
+
+    return {'values': values, 'is_numeric': is_numeric}
+
+
+def insert_item_info(itemid, values, is_numeric, linksto):
+    """
+    Insert single item into jvn_items
+
+    Args:
+        itemid (TYPE): Description
+        values (TYPE): Description
+    """
+    logger.info('insert_item_info: itemid=%s', itemid)
+    # TODO: parameters
+    concept_dir = '../data'
+
+    d_items_dict = load_d_items(os.path.join(concept_dir, D_ITEMS_FILENAME))
+    d_item = d_items_dict[itemid]
+    label = d_item['label']
+    abbr = d_item['abbreviation']
+    dbsource = d_item['dbsource']
+
+    if is_numeric:
+        min_value = math.floor(np.percentile(values, 5) * 10) / 10
+        max_value = math.floor(np.percentile(values, 95) * 10) / 10
+        percentile_25 = math.floor(np.percentile(values, 25) * 10) / 10
+        percentile_50 = math.floor(np.percentile(values, 50) * 10) / 10
+        percentile_75 = math.floor(np.percentile(values, 75) * 10) / 10
+        logger.info(
+            'itemid=%s, min=%s, 25p=%s, 50p=%s, 75p=%s, max=%s',
+            itemid, min_value, percentile_25, percentile_50, percentile_75,
+            max_value)
+
+        dist_fname = ''
+        if len(values) > 1:
+            dist_fname = export_distribution_image(values, itemid)
+
+        # insert data to database
+        insert_jvn_items(
+            itemid, label, abbr, dbsource, linksto, True,
+            min_value=min_value, max_value=max_value,
+            percentile25th=percentile_25, percentile50th=percentile_50,
+            percentile75th=percentile_75, distributionImg=dist_fname)
+    else:
+        # handle category item
+        insert_jvn_items(
+            itemid, label, abbr, dbsource, linksto, False)

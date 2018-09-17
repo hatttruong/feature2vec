@@ -58,6 +58,15 @@ $ cd preprocessing
 $ python3 main.py prepare_numeric_item
 ```
 
+- Backup data of `jvn_items` to file:
+```
+# Backup
+$ pg_dump -U mimicuser -d mimic -t mimiciii.jvn_items > /Users/hatruong/hagit/feature2vec/mics/jvn_items_data.sql
+
+# Restore
+$ pg_dump -U mimicuser -d mimic  -f /Users/hatruong/hagit/feature2vec/mics/jvn_items_data.sql
+```
+
 * **Step 2**: Crawl google search result for each items (save to files and store at `data/webpages`)
 
 ```
@@ -68,15 +77,11 @@ python3 main.py crawl_webpages
 python3 main.py tfidf_medical_webpages
 ```
 
-* **Step 3**: Cluster medical webpages, using **XXXX** algorithm: **TODO**
+* **Step 3**: Cluster medical terms by similarity of label, distribution values (numeric) or similarity values (category)
 
-Cluster documents and create candidate groups based on `SearchTermResults`, insert into `GroupItems`
+TODO: read [KL Divergence](https://bigdatascientistblog.wordpress.com/2017/09/11/a-simple-introduction-to-kullback-leibler-divergence-through-python-code/)
 
-```
-id
-name
-createdBy: 'SYS'
-```
+
 
 
 ## 2.2 Prepare data to train feature

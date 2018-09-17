@@ -9,7 +9,7 @@ import argparse
 
 from src.preprocess import *
 from src.configer import *
-from src.item_preprocessor import cluster, crawl_webpages, prepare_item_info
+from src.item_preprocessor import cluster, crawl_webpages
 from src import tfidf
 
 Configer = Configer('setting.ini')
@@ -30,8 +30,7 @@ if __name__ == '__main__':
         'action',
         choices=['define_concepts', 'update_chartevents',
                  'create_train_dataset', 'crawl_webpages',
-                 'tfidf_medical_webpages', 'prepare_item',
-                 'cluster'],
+                 'tfidf_medical_webpages', 'cluster'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -67,7 +66,3 @@ if __name__ == '__main__':
                           model_dir='../models')
     elif args.action == 'cluster':
         cluster()
-
-    elif args.action == 'prepare_item':
-        prepare_item_info()
-
