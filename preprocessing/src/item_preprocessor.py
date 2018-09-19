@@ -257,7 +257,6 @@ def cluster():
         [_ for _ in actual_items_dict.keys() if _ <= SEPERATED_ID])
 
     for itemid, item in actual_items_dict.items():
-
         # for each CareVue, find its similar items which can be both CV and MV
         if itemid <= SEPERATED_ID and itemid not in done_cv_items:
             # get top items which have similar label
@@ -265,6 +264,11 @@ def cluster():
                                                   d_items_dict, top_n=5)
             compute_value_similarity(itemid, candidates, item['linksto'],
                                      item_with_values)
+
+            if len(candidates) == 0:
+                logger.info(
+                    'there is no matching candidates for item=%s', itemid)
+                continue
 
             candidates[itemid] = {'value_score': 100, 'label_score': 100}
 
@@ -327,24 +331,38 @@ def compute_label_similarity(itemid, actual_items_dict, d_items_dict, top_n=5):
     Returns:
         dict: {itemid: score}
     """
-    logger.info('compute_label_similarity: %s', itemid)
+    logger.info('compute_label_similarity: %s, %s',
+                itemid, d_items_dict[itemid]['label'])
 
     label = d_items_dict[itemid]['label'].lower()
     label_scores = list()
     for compared_id in actual_items_dict.keys():
         if compared_id != itemid:
             compared_label = d_items_dict[compared_id]['label'].lower()
-            s = fuzz.partial_token_set_ratio(label, compared_label)
-            label_scores.append((compared_id, s, compared_label))
+            s1 = fuzz.partial_token_set_ratio(label, compared_label)
+            s2 = fuzz.token_sort_ratio(label, compared_label)
+            label_scores.append((compared_id, s1, s2))
 
+    # sort by s1 frist and filter number of item with scores >80
     label_scores = sorted(
         label_scores, key=operator.itemgetter(1), reverse=True)
-    label_scores = label_scores[:top_n] if len(
-        label_scores) >= top_n else label_scores
+    label_scores = [item for item in label_scores if item[1] >= 100]
+
+    # if number of items is too large, filter by s2
+    if len(label_scores) >= 10:
+        label_scores = sorted(
+            label_scores, key=operator.itemgetter(2), reverse=True)
+        label_scores = label_scores[:top_n] if len(
+            label_scores) >= top_n else label_scores
 
     candidates = dict()
     for item in label_scores:
-        candidates[item[0]] = {'label_score': item[1]}
+        logger.info('itemid=%s, label=%s', item[0],
+                    d_items_dict[item[0]]['label'])
+        candidates[item[0]] = {'label_score': 0.5 * (item[1] + item[2])}
+
+    logger.info('similar candidates: nb_candidates=%s, items=%s',
+                len(candidates), str(candidates))
 
     return candidates
 
@@ -373,7 +391,8 @@ def compute_value_similarity(itemid, candidates, linksto, item_with_values):
         candidate = item_with_values[candidate_id]
 
         if item['is_numeric'] != candidate['is_numeric']:
-            logger.info('delete candidate because it is not the same type')
+            logger.info('delete candidate=%s, not the same type',
+                        candidate_id)
             del_candidate_ids.append(candidate_id)
             continue
 
@@ -389,6 +408,8 @@ def compute_value_similarity(itemid, candidates, linksto, item_with_values):
 
     for del_id in del_candidate_ids:
         del candidates[del_id]
+
+    logger.info('similar candidates: %s', str(candidates))
 
 
 def get_item_with_values(itemid, linksto):
