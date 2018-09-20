@@ -10,8 +10,8 @@
       <v-toolbar-items>
         <v-btn
           flat dark
-          @click="navigateTo({name: 'groupitems'})">
-          Groups
+          @click="navigateTo({name: 'concepts'})">
+          Concepts
         </v-btn>
         <v-btn
           flat dark

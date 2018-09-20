@@ -16,9 +16,9 @@
 //       user.setDataValue('password', hash)
 //     })
 // }
-
+// IMPORTANT: Name of Model must be identical with name of table
 module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('jvn_user', {
+  const JvnUser = sequelize.define('JvnUser', {
     email: {
       type: DataTypes.STRING,
       unique: true
@@ -34,13 +34,13 @@ module.exports = (sequelize, DataTypes) => {
   // }
   )
 
-  User.prototype.comparePassword = function (password) {
+  JvnUser.prototype.comparePassword = function (password) {
     // return bcrypt.compareAsync(password, this.password)
     return password === this.password
   }
 
-  User.associate = function (models) {
+  JvnUser.associate = function (models) {
   }
 
-  return User
+  return JvnUser
 }

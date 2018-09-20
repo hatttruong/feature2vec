@@ -1,5 +1,7 @@
+// IMPORTANT: Name of Model must be identical with name of table
+// Sequelize automatically add "s" at the end of name of table in Postgresql (???)
 module.exports = (sequelize, DataTypes) => {
-  const Item = sequelize.define('jvn_item_mapping', {
+  const JvnItem = sequelize.define('JvnItem', {
     itemid: {
       type: DataTypes.INTEGER,
       unique: true,
@@ -11,23 +13,21 @@ module.exports = (sequelize, DataTypes) => {
     linksto: DataTypes.STRING(50),
     isnumeric: DataTypes.BOOLEAN,
     unit: DataTypes.STRING(50),
-    category_values: DataTypes.STRING(500),
-    min: DataTypes.DOUBLE,
-    percentile_25th: DataTypes.DOUBLE,
-    percentile_50th: DataTypes.DOUBLE,
-    percentile_75th: DataTypes.DOUBLE,
-    max: DataTypes.DOUBLE,
+    min_value: DataTypes.DOUBLE,
+    percentile25th: DataTypes.DOUBLE,
+    percentile50th: DataTypes.DOUBLE,
+    percentile75th: DataTypes.DOUBLE,
+    max_value: DataTypes.DOUBLE,
     distribution_img: DataTypes.STRING(500)
-  }, {
-    classMethods: {
-      associate: (models) => {
-        console.log(models.jvn_concepts)
-        Item.belongsTo(models.jvn_concepts, { foreignKey: 'candidate_concept_id', as: 'CandidateConcept' })
-        Item.belongsTo(models.jvn_concepts, { foreignKey: 'concept_id', as: 'Concept' })
-      }
-    }
   })
-  // Item.hasOne(Concept, { as: 'CandidateConcept', foreignKey: 'candidate_concept_id' })
-  // Item.hasOne(Concept, { as: 'Concept', foreignKey: 'concept_id' })
-  return Item
+
+  JvnItem.associate = function (models) {
+    JvnItem.belongsToMany(models.JvnConcept, {
+      foreignKey: 'itemid',
+      through: 'JvnItemMapping',
+      as: 'JvnConcept'
+    })
+  }
+
+  return JvnItem
 }

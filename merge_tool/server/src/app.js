@@ -12,7 +12,9 @@ app.use(cors())
 
 require('./routes')(app)
 
-sequelize.sync({force: true})
+// set force: true to force re-create database, if false, it only creates when does not exist
+// sequelize.sync({force: true})
+sequelize.sync({force: false})
   .then(() => {
     app.listen(config.port)
 

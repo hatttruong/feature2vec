@@ -21,12 +21,11 @@ CREATE TABLE jvn_items(
     linksto varchar(50),
     isnumeric boolean,
     unit varchar(50),
-    min double precision,
-    max double precision,
+    min_value double precision,
     percentile25th double precision,
     percentile50th double precision,
     percentile75th double precision,
-    category_values varchar(500),
+    max_value double precision,
     distribution_img varchar(500),
     PRIMARY KEY (itemid)
 );
@@ -48,3 +47,9 @@ CREATE TABLE jvn_value_mapping(
     unified_value varchar(200),
     PRIMARY KEY (conceptid, value)
 );
+
+---------------------------------
+-- rename column in Postgresql --
+-- ALTER TABLE mimiciii.jvn_items RENAME COLUMN min TO min_value;
+-- ALTER TABLE mimiciii.jvn_items RENAME COLUMN max TO max_value;
+-- ALTER TABLE mimiciii.jvn_items DROP COLUMN IF EXISTS category_values;

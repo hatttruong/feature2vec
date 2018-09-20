@@ -3,7 +3,7 @@ import Router from 'vue-router'
 import Register from '@/components/Register'
 import Login from '@/components/Login'
 import Items from '@/components/Items'
-import GroupItems from '@/components/GroupItems'
+import Concepts from '@/components/Concepts'
 import MergeItems from '@/components/MergeItems'
 
 Vue.use(Router)
@@ -31,9 +31,9 @@ export default new Router({
       component: Items
     },
     {
-      path: '/groupitems',
-      name: 'groupitems',
-      component: GroupItems
+      path: '/concepts',
+      name: 'concepts',
+      component: Concepts
     },
     {
       path: '*',

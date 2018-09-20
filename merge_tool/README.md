@@ -122,4 +122,37 @@ npm install --save vuex
 npm install --save vuex-router-sync
 ```
 
+## Some notes:
+- At server side, `sequelize` works as an `ORM`, generate tables into database. But it is IMPORTANT to rememnber that:
+    + Name of MODEL must be identical with name of TABLE. If it does not, we cannot get model in `Controller`, for example:
+    ```javascript
+    [models/Item.js]
+    module.exports = (sequelize, DataTypes) => {
+      const JvnItem = sequelize.define('JvnItem', {
+          ...
+      })
+      return JvnItem
+    }
+  
+    [controllers/ItemsController.js]
+    const { JvnItem } = require('../models')
+    ```
+    + Remember to return model object in `models/XXX.js`
+    + Sequelize automatically add "s" at the end of name of table in Postgresql (???), for example, `JvnItem` model will be `JvnItems` table
+    + Sequelize uses double quotes when creating the tables and in Postgres, the tables where created using double quotes which makes the names case sensitive ("Devices" is a different name then Devices)
 
+## Done
+- Load Concepts from DB
+- Load Items from DB
+
+## TODO
+- Items page:
+    - Show distributions or list of values when click on Item
+    - Filter Items by: name
+- Concepts page:
+    - Show items belong to Concepts
+    - Filter Concepts by: name, created by
+- Merge page:
+    - show distributions
+    - drag & drop categories values
+    - save object to postgres

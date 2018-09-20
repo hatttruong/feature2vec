@@ -1,11 +1,15 @@
-const { Item } = require('../models')
+const { JvnItem } = require('../models')
+console.log('JvnItem:', JvnItem)
 
 module.exports = {
   async index (req, res) {
     try {
-      const items = await Item.findAll({
-        limit: 10
-      })
+      console.log('Item:', JvnItem)
+      let items = await JvnItem.findAll()
+      // {
+      // limit: 10
+      // }
+      // )
       res.send(items)
     } catch (e) {
       console.log('ERROR', e)
@@ -16,7 +20,7 @@ module.exports = {
   },
   async post (req, res) {
     try {
-      const item = await Item.create(req.body)
+      const item = await JvnItem.create(req.body)
       res.send(item)
     } catch (err) {
       console.log('ERROR', err)

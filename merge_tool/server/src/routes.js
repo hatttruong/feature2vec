@@ -1,7 +1,7 @@
 const AuthenticationController = require('./controllers/AuthenticationController')
-const AuthenticationControllerPolicy = require('./policies/AuthenticationControllerPolicy')
+// const AuthenticationControllerPolicy = require('./policies/AuthenticationControllerPolicy')
 const ItemsController = require('./controllers/ItemsController')
-const GroupItemsController = require('./controllers/ConceptsController')
+const ConceptsController = require('./controllers/ConceptsController')
 
 
 module.exports = (app) => {
@@ -16,8 +16,8 @@ module.exports = (app) => {
   app.post('/items',
     ItemsController.post)
 
-  app.get('/groupitems',
-    GroupItemsController.index)
-  app.post('/creategroup',
-    GroupItemsController.create)
+  app.get('/concepts',
+    ConceptsController.index)
+  app.post('/createconcept',
+    ConceptsController.create)
 }

@@ -1,4 +1,4 @@
-const CLASSMETHODS = 'classMethods'
+// const CLASSMETHODS = 'classMethods'
 const ASSOCIATE = 'associate'
 const fs = require('fs')
 const path = require('path')
@@ -42,11 +42,9 @@ fs
   })
 
 Object.keys(db).forEach(function (modelName) {
-  if (CLASSMETHODS in db[modelName].options) {
-    console.log(modelName, db[modelName].options[CLASSMETHODS])
-    if (ASSOCIATE in db[modelName].options[CLASSMETHODS]) {
-      db[modelName].options.classMethods.associate(db)
-    }
+  if (ASSOCIATE in db[modelName]) {
+    console.log('debug: modelName=', modelName, ',db[modelName]=', db[modelName])
+    db[modelName].associate(db)
   }
 })
 

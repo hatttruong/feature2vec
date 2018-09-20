@@ -1,11 +1,10 @@
-const { Concept } = require('../models')
+const { JvnConcept } = require('../models')
+console.log('JvnConcept:', JvnConcept)
 
 module.exports = {
   async index (req, res) {
     try {
-      const concepts = await Concept.findAll({
-        limit: 10
-      })
+      const concepts = await JvnConcept.findAll()
       res.send(concepts)
     } catch (e) {
       console.log('ERROR func index', e)
@@ -16,7 +15,7 @@ module.exports = {
   },
   async create (req, res) {
     try {
-      const concept = await Concept.create(req.body)
+      const concept = await JvnConcept.create(req.body)
       res.send(concept)
     } catch (err) {
       console.log('ERROR: func create: ', err)
