@@ -171,13 +171,14 @@ npm install --save vuex-router-sync
 - Items page:
     - Show distributions when click on Item: [example](https://codepen.io/metamet/pen/rrBEZr) (copy images to **static** folder)
     - Filter Items by: name
-
+- Concepts page:
+    - Filter Concepts by: name, created by
+ 
 ## TODO
 - Items page:
     - Show list of values when click on Item
 - Concepts page:
     - Show items belong to Concepts
-    - Filter Concepts by: name, created by
 - Merge page:
     - show distributions
     - drag & drop categories values

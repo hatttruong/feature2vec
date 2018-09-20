@@ -10,11 +10,29 @@
           <v-icon>add</v-icon>
         </v-btn>
         <div slot="content">
+          <v-card-title>
+            <v-select
+              v-model="searchCreatedBy"
+              label="Created by"
+              :items="['ALL', 'SYS', 'USER']"
+              single-line
+              hide-details
+            ></v-select>
+            <v-spacer></v-spacer>
+            <v-spacer></v-spacer>
+            <v-text-field
+              v-model="searchName"
+              label="Search"
+              append-icon="search"
+              single-line
+              hide-details
+            ></v-text-field>
+          </v-card-title>
           <v-card flat>
             <v-data-table
               :headers="headers"
               :rows-per-page-items=[10,25,50,100]
-              :items="concepts"
+              :items="filteredConcepts"
               class="elevation-1">
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.conceptid }}</td>
@@ -49,7 +67,9 @@ export default {
         { text: 'Linksto', value: 'linksto' },
         { text: 'Numeric', value: 'isnumeric' },
         { text: 'Created By', value: 'created_by' }
-      ]
+      ],
+      searchCreatedBy: '',
+      searchName: ''
     }
   },
   methods: {
@@ -59,7 +79,17 @@ export default {
   },
   async mounted () {
     this.concepts = (await ConceptsService.index()).data
-    console.log('Concepts', this.concepts)
+    console.log('Mounted Concepts', this.concepts)
+  },
+  computed: {
+    filteredConcepts () {
+      const { searchCreatedBy, searchName } = this
+      console.log('filteredConcepts')
+
+      return this.concepts
+        .filter(concept => searchName === '' || concept.concept.toLowerCase().indexOf(searchName.toLowerCase()) > -1)
+        .filter(concept => searchCreatedBy === 'ALL' || searchCreatedBy === '' || concept.created_by === searchCreatedBy)
+    }
   }
 }
 </script>
