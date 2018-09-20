@@ -13,6 +13,19 @@ module.exports = {
       })
     }
   },
+  async search (req, res) {
+    try {
+      // const song = await Song.findById(req.params.songId)
+      // res.send(song)
+      const concepts = await JvnConcept.findAll()
+      res.send(concepts)
+    } catch (e) {
+      console.log('ERROR func index', e)
+      res.status(500).send({
+        error: 'an error has occurred trying to fetch the concepts'
+      })
+    }
+  },
   async create (req, res) {
     try {
       const concept = await JvnConcept.create(req.body)

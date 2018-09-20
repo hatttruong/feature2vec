@@ -2,18 +2,19 @@ import Vue from 'vue'
 import Router from 'vue-router'
 import Register from '@/components/Register'
 import Login from '@/components/Login'
+import Dashboard from '@/components/Dashboard'
 import Items from '@/components/Items'
 import Concepts from '@/components/Concepts'
-import MergeItems from '@/components/MergeItems'
+import ConceptDetail from '@/components/ConceptDetail'
 
 Vue.use(Router)
 
 export default new Router({
   routes: [
     {
-      path: '/merge',
-      name: 'merge',
-      component: MergeItems
+      path: '/',
+      name: 'dashboard',
+      component: Dashboard
     },
     {
       path: '/register',
@@ -36,8 +37,13 @@ export default new Router({
       component: Concepts
     },
     {
+      path: '/concepts/:conceptid',
+      name: 'concept',
+      component: ConceptDetail
+    },
+    {
       path: '*',
-      redirect: 'merge'
+      redirect: 'dashboard'
     }
   ]
 })

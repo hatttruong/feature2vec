@@ -35,11 +35,13 @@
               :items="filteredConcepts"
               class="elevation-1">
               <template slot="items" slot-scope="props">
-                <td class="text-xs-left">{{ props.item.conceptid }}</td>
-                <td class="text-xs-left">{{ props.item.concept }}</td>
-                <td class="text-xs-left">{{ props.item.linksto }}</td>
-                <td>{{ props.item.isnumeric}}</td>
-                <td class="text-xs-left">{{ props.item.created_by }}</td>
+                <tr @click="navigateTo({name: 'concept', params: { conceptid: props.item.conceptid }})" class="concept-link">
+                  <td class="text-xs-left">{{ props.item.conceptid }}</td>
+                  <td class="text-xs-left">{{ props.item.concept }}</td>
+                  <td class="text-xs-left">{{ props.item.linksto }}</td>
+                  <td>{{ props.item.isnumeric}}</td>
+                  <td class="text-xs-left">{{ props.item.created_by }}</td>
+                </tr>
               </template>
             </v-data-table>
           </v-card>
@@ -74,6 +76,7 @@ export default {
   },
   methods: {
     navigateTo (route) {
+      console.log(route)
       this.$router.push(route)
     }
   },
@@ -95,5 +98,11 @@ export default {
 </script>
 
 <style scoped>
+  tr.concept-link td {
+    cursor: pointer;
+  }
 
+  tr.concept-link:hover td {
+    color: blue;
+  }
 </style>

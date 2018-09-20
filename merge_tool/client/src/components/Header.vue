@@ -2,7 +2,7 @@
     <v-toolbar fixed class="blue" dark>
       <v-toolbar-title class="mr-4">
         <span class="home"
-          @click="navigateTo({name: 'merge'})">
+          @click="navigateTo({name: 'dashboard'})">
           MergeTool
         </span>
       </v-toolbar-title>
