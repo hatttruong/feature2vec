@@ -122,7 +122,7 @@ npm install --save vuex
 npm install --save vuex-router-sync
 ```
 
-## Some notes:
+## Sequelize notes:
 - At server side, `sequelize` works as an `ORM`, generate tables into database. But it is IMPORTANT to rememnber that:
     + Name of MODEL must be identical with name of TABLE. If it does not, we cannot get model in `Controller`, for example:
     ```javascript
@@ -141,14 +141,40 @@ npm install --save vuex-router-sync
     + Sequelize automatically add "s" at the end of name of table in Postgresql (???), for example, `JvnItem` model will be `JvnItems` table
     + Sequelize uses double quotes when creating the tables and in Postgres, the tables where created using double quotes which makes the names case sensitive ("Devices" is a different name then Devices)
 
+## Client Notes:
+- load image: [read here](https://webpack.js.org/guides/asset-management/#loading-images)
+    + install `file-loader`
+    
+    ```javascript
+    npm install --save-dev file-loader
+    ```
+    
+    + add the following rule into `build/webpage.base.conf.js`:
+    
+    ```javascript
+    module: {
+        rules: [
+        ....
+        {
+            test: /\.(png|svg|jpg|gif)$/,
+            use: [
+              'file-loader'
+            ]
+        }
+        ...
+      ]
+    }
+    ```
 ## Done
 - Load Concepts from DB
 - Load Items from DB
+- Items page:
+    - Show distributions when click on Item: [example](https://codepen.io/metamet/pen/rrBEZr) (copy images to **static** folder)
+    - Filter Items by: name
 
 ## TODO
 - Items page:
-    - Show distributions or list of values when click on Item
-    - Filter Items by: name
+    - Show list of values when click on Item
 - Concepts page:
     - Show items belong to Concepts
     - Filter Concepts by: name, created by
