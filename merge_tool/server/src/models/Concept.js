@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
     JvnConcept.belongsToMany(models.JvnItem, {
       foreignKey: 'conceptid',
       through: 'JvnItemMapping',
-      as: 'JvnConcept'
+      as: 'JvnItem'
     })
   }
 

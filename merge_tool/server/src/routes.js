@@ -18,8 +18,8 @@ module.exports = (app) => {
 
   app.get('/concepts',
     ConceptsController.index)
-  app.put('/concepts/:createdBy/:limit',
-    ConceptsController.search)
-  app.post('/createconcept',
-    ConceptsController.create)
+  app.get('/concepts/:conceptid',
+    ConceptsController.show)
+  app.post('/create-concept',
+    ConceptsController.post)
 }

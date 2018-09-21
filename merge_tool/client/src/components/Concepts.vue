@@ -22,7 +22,7 @@
             <v-spacer></v-spacer>
             <v-text-field
               v-model="searchName"
-              label="Search"
+              label="Name"
               append-icon="search"
               single-line
               hide-details

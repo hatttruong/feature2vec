@@ -4,15 +4,10 @@ export default {
   index () {
     return Api().get('concepts')
   },
-  getConcepts (createdBy, limit) {
-    return Api().get('concepts', {
-      params: {
-        createdBy: createdBy,
-        limit: limit
-      }
-    })
+  show (conceptid) {
+    return Api().get(`concepts/${conceptid}`)
   },
-  create () {
-    return Api().post('createconcept')
+  post (concept) {
+    return Api().post('create-concept', concept)
   }
 }
