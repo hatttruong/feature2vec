@@ -10,11 +10,13 @@
             :rules="[required]"
             :disabled="isViewMode"
             v-model="concept.concept" >
+            single-line
           </v-text-field>
           <v-checkbox
             label="Is numeric"
             :disabled="isViewMode"
             v-model="concept.isnumeric"
+            single-line
           ></v-checkbox>
           <!--<v-text-field-->
             <!--label="Created By"-->
@@ -30,25 +32,47 @@
           <!--</v-text-field>-->
 
           <v-subheader>LIST ITEMS</v-subheader>
-          <v-list two-line>
-            <template v-for="item in items">
-              <v-list-tile
-                :key="item.itemid">
-                <v-list-tile-action>
-                  <v-checkbox
-                    v-model="checkedItems"
-                    v-bind:value="item.itemid"
-                    :disabled="isViewMode"
-                    @change="handleIncludeItem"
-                  ></v-checkbox>
-                </v-list-tile-action>
-                <v-list-tile-content>
-                  <v-list-tile-title v-html="item.itemid"></v-list-tile-title>
-                  <v-list-tile-sub-title v-html="item.label"></v-list-tile-sub-title>
-                </v-list-tile-content>
-              </v-list-tile>
+          <v-card-title>
+            <v-text-field
+              v-model="searchName"
+              append-icon="search"
+              label="Search"
+              single-line
+              hide-details
+            ></v-text-field>
+          </v-card-title>
+          <v-data-table
+            :headers="selectedItemHeaders"
+            :items="filteredItems"
+            v-model="selected"
+            item-key="itemid"
+            select-all
+            class="elevation-1">
+            <template slot="headerCell" slot-scope="props">
+              <v-tooltip bottom>
+                <span slot="activator">
+                  {{ props.header.text }}
+                </span>
+                <span>
+                  {{ props.header.text }}
+                </span>
+              </v-tooltip>
             </template>
-          </v-list>
+            <template slot="items" slot-scope="props">
+              <tr>
+                <td>
+                  <v-checkbox
+                    v-model="props.selected"
+                    primary
+                    hide-details
+                    @change="handleSelectedItem"
+                  ></v-checkbox>
+                </td>
+                <td class="text-xs-left">{{ props.item.itemid }}</td>
+                <td class="text-xs-left">{{ props.item.label }}</td>
+              </tr>
+            </template>
+          </v-data-table>
         </div>
       </panel>
       <div class="danger-alert" v-if="error">
@@ -78,14 +102,15 @@
           <!--General tab-->
           <v-card flat v-if="tab.id == 'general'">
             <v-data-table
-              :headers="headers"
-              :items="items"
+              :headers="detailItemHeaders"
+              :items="selected"
+              :rows-per-page-items=[10,25,50,100]
               class="elevation-1">
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.itemid }}</td>
                 <td class="text-xs-left">{{ props.item.label }}</td>
                 <td class="text-xs-left">{{ props.item.dbsource }}</td>
-                <td>{{ props.item.isNumeric}}</td>
+                <td>{{ props.item.isnumeric}}</td>
                 <td>{{ props.item.min_value }}</td>
                 <td>{{ props.item.percentile25th }}</td>
                 <td>{{ props.item.percentile50th }}</td>
@@ -99,7 +124,7 @@
           <v-card flat v-if="tab.id == 'distributions' && concept.isnumeric">
               <v-container fluid grid-list-lg text-xs-center>
                 <v-layout row wrap>
-                  <v-flex xs6 v-for="item in items" :key="item.itemid">
+                  <v-flex xs6 v-for="item in selected" :key="item.itemid">
                     <img v-bind:src="'/static/distributions/' + item.distribution_img" height="250px" />
                     <v-card-text class="title">{{item.itemid}} - {{item.label}}</v-card-text>
                   </v-flex>
@@ -110,8 +135,8 @@
           <!--Category Values tab-->
           <v-card flat v-if="tab.id == 'categoryvalues' && !concept.isnumeric">
             <v-data-table
-              :headers="category_headers"
-              :items="items"
+              :headers="categoryHeaders"
+              :items="selected"
               class="elevation-1">
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.itemid }}</td>
@@ -131,6 +156,7 @@
 <script>
 import Panel from '@/components/Panel'
 import ConceptsService from '@/services/ConceptsService'
+import ItemService from '@/services/ItemsService'
 
 export default {
   name: 'ConceptDetail',
@@ -142,7 +168,13 @@ export default {
       loading: false,
       concept: [],
       items: [],
-      checkedItems: [],
+      selected: [],
+      selectedItemHeaders: [
+        { text: 'ItemId', value: 'itemid' },
+        { text: 'Name', value: 'label' }
+      ],
+      searchCreatedBy: '',
+      searchName: '',
       isViewMode: true,
       error: null,
       required: (value) => !!value || 'Required.',
@@ -151,7 +183,7 @@ export default {
         {name: 'Distributions', id: 'distributions'},
         {name: 'Category Values', id: 'categoryvalues'}
       ],
-      headers: [
+      detailItemHeaders: [
         { text: 'Id', value: 'itemid' },
         { text: 'Name', value: 'label' },
         { text: 'Source', value: 'dbsource' },
@@ -162,7 +194,7 @@ export default {
         { text: '75th', value: 'percentile75th' },
         {text: 'Max', value: 'max_value'}
       ],
-      category_headers: [
+      categoryHeaders: [
         { text: 'Id', value: 'itemid' },
         { text: 'Name', value: 'label' },
         { text: 'Source', value: 'dbsource' },
@@ -171,24 +203,35 @@ export default {
     }
   },
   async mounted () {
+    // load all items which are not processed
+    this.items = (await ItemService.index()).data
+
+    // load concept
     const conceptid = this.$route.params.conceptid
     if (conceptid) {
       this.isViewMode = true
       this.concept = (await ConceptsService.show(conceptid)).data
-      this.items = this.concept.JvnItem
-      for (const item of this.items) {
-        this.checkedItems.push(item.itemid)
+      for (const selItem of this.concept.JvnItem) {
+        this.selected.push(Object.assign({}, selItem))
       }
-      console.log('Mounted Concept by id', this.concept)
+      console.log('this.selected', this.selected)
+      console.log('this.concept', this.concept)
     } else {
-      // this.concept = (await ConceptsService.getSysConcepts(conceptid)).data
+      this.concept = {name: ''}
       console.log('TODO')
+    }
+  },
+  computed: {
+    filteredItems () {
+      const { searchName, selected } = this
+      return this.items
+        .filter(item => selected.indexOf(item) > -1 || searchName === '' || item.label.toLowerCase().indexOf(searchName.toLowerCase()) > -1)
     }
   },
   methods: {
     async createOrEdit () {
       try {
-        this.concept.updatedItemIds = this.checkedItems
+        this.concept.JvnItem = this.selected
         console.log('createOrEdit', this.concept)
         await ConceptsService.post(this.concept)
         this.$router.push({
@@ -201,9 +244,8 @@ export default {
     turnEditMode () {
       this.isViewMode = !this.isViewMode
     },
-    handleIncludeItem (e) {
-      // e.preventDefault()
-      console.log('handleIncludeItem: this.checkedItems', this.checkedItems)
+    handleSelectedItem () {
+      console.log('handleIncludeItem: this.selected', this.selected)
     }
   }
 }

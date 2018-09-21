@@ -175,12 +175,13 @@ npm install --save vuex-router-sync
     - Filter Concepts by: name, created by
 - Concept detail page:
     - show distributions
+    - **add more item**
     
 ## TODO
 - Concept detail page:
     - drag & drop categories values
     - save object to postgres
-    - **add more item**
+    
 - Items page:
     - Show list of values when click on Item
 - Concepts page:
