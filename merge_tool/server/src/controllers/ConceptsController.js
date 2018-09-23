@@ -1,4 +1,4 @@
-const { JvnConcept, JvnItem, JvnItemMapping } = require('../models')
+const { JvnConcept, JvnItem, JvnItemMapping, JvnValueMapping } = require('../models')
 console.log('JvnConcept:', JvnConcept)
 
 module.exports = {
@@ -103,6 +103,20 @@ module.exports = {
           await JvnItemMapping.create({
             conceptid: concept.conceptid,
             itemid: item.itemid
+          })
+        }
+      }
+
+      if (!updatedConcept.isnumeric && updatedConcept.JvnValueMapping) {
+        // update JvnValueMapping
+        for (const vm of updatedConcept.JvnValueMapping) {
+          await JvnValueMapping.update({
+            unified_value: vm.unified_value
+          }, {
+            where: {
+              itemid: vm.itemid,
+              value: vm.value
+            }
           })
         }
       }

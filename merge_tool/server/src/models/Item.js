@@ -28,6 +28,10 @@ module.exports = (sequelize, DataTypes) => {
       through: 'JvnItemMapping',
       as: 'JvnConcept'
     })
+    JvnItem.hasMany(models.JvnValueMapping, {
+      foreignKey: 'itemid',
+      as: 'JvnValueMapping'
+    })
   }
 
   return JvnItem

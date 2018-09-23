@@ -143,7 +143,15 @@
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.itemid }}</td>
                 <td class="text-xs-left">{{ props.item.value }}</td>
-                <td class="text-xs-left">{{ props.item.unified_value }}</td>
+                <td class="text-xs-left">
+                  <v-text-field
+                    required
+                    :rules="[required]"
+                    :disabled="isViewMode"
+                    v-model="props.item.unified_value" >
+                    single-line
+                  </v-text-field>
+                </td>
               </template>
             </v-data-table>
           </v-card>
@@ -174,6 +182,7 @@ export default {
         { text: 'ItemId', value: 'itemid' },
         { text: 'Name', value: 'label' }
       ],
+      selectedValueMapping: [],
       searchCreatedBy: '',
       searchName: '',
       isViewMode: true,
@@ -205,11 +214,6 @@ export default {
   async mounted () {
     // load all items which are not processed
     this.items = (await ItemService.index()).data
-    for (const item of this.items) {
-      item.JvnValueMapping = []
-      item.JvnValueMapping.push({itemid: 1, value: 'abc', unified_value: 'abc 123'})
-      item.JvnValueMapping.push({itemid: 2, value: 'def', unified_value: 'def 123'})
-    }
 
     // load concept
     const conceptid = this.$route.params.conceptid
@@ -217,11 +221,10 @@ export default {
       this.isViewMode = true
       this.concept = (await ConceptsService.show(conceptid)).data
       for (const selItem of this.concept.JvnItem) {
-        selItem.JvnValueMapping = []
-        selItem.JvnValueMapping.push({itemid: 1, value: 'abc', unified_value: 'abc 123'})
-        selItem.JvnValueMapping.push({itemid: 2, value: 'def', unified_value: 'def 123'})
-        this.selected.push(Object.assign({}, selItem))
+        this.selected.push(Object.assign({}, this.items.find(x => x.itemid === selItem.itemid)))
       }
+      this.setValueMapping()
+
       console.log('this.selected', this.selected)
       console.log('this.concept', this.concept)
     } else {
@@ -234,19 +237,13 @@ export default {
       const { searchName, selected } = this
       return this.items
         .filter(item => selected.indexOf(item) > -1 || searchName === '' || item.label.toLowerCase().indexOf(searchName.toLowerCase()) > -1)
-    },
-    selectedValueMapping () {
-      const valueMappings = []
-      this.selected.forEach(item => valueMappings.push(item.JvnValueMapping))
-      const flattened = [].concat(...valueMappings)
-      console.log(flattened)
-      return flattened
     }
   },
   methods: {
     async createOrEdit () {
       try {
         this.concept.JvnItem = this.selected
+        this.concept.JvnValueMapping = this.selectedValueMapping
         console.log('createOrEdit', this.concept)
 
         if (this.concept.conceptid > 0) {
@@ -264,7 +261,14 @@ export default {
     turnEditMode () {
       this.isViewMode = !this.isViewMode
     },
+    setValueMapping () {
+      const valueMappings = []
+      this.selected.forEach(item => valueMappings.push(item.JvnValueMapping))
+      this.selectedValueMapping = [].concat(...valueMappings)
+      console.log('this.selectedValueMapping:', this.selectedValueMapping)
+    },
     handleSelectedItem () {
+      this.setValueMapping()
       console.log('handleIncludeItem: this.selected', this.selected)
     }
   }

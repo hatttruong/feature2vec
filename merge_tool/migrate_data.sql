@@ -65,3 +65,16 @@ SELECT  conceptid,
         current_timestamp as createdAt,
         current_timestamp as updatedAt
 FROM mimiciii.jvn_item_mapping;
+
+-- JvnValueMappings:
+INSERT INTO "JvnValueMappings"(itemid,
+                               value,
+                               unified_value,
+                               "createdAt",
+                               "updatedAt")
+SELECT  itemid,
+        value,
+        unified_value,
+        current_timestamp as createdAt,
+        current_timestamp as updatedAt
+FROM mimiciii.jvn_value_mapping;

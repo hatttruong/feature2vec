@@ -1,15 +1,11 @@
-const { JvnItem } = require('../models')
+const { JvnItem, JvnValueMapping } = require('../models')
 console.log('JvnItem:', JvnItem)
 
 module.exports = {
   async index (req, res) {
     try {
       console.log('Item:', JvnItem)
-      let items = await JvnItem.findAll()
-      // {
-      // limit: 10
-      // }
-      // )
+      let items = await JvnItem.findAll({ include: [{ model: JvnValueMapping, as: 'JvnValueMapping' }] })
       res.send(items)
     } catch (e) {
       console.log('ERROR', e)
