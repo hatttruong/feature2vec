@@ -105,8 +105,31 @@ End at: 2018-09-06.14:01:52. Duration: ~3h 20 mins
 ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_not_merge.csv.0.5M -output ../models/skipgram_ce_nm_05M -epoch 5 -verbose 2
 
 #### TEST tp7 server ####
-sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm -epoch 5 -verbose 2
+# CASE 1
+$ sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm -ws 60 -dim 100 -epoch 5 -verbose 2
+
+# CASE 2
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_60_dim_200 -ws 60 -dim 200 -epoch 5 -verbose 2
+
+# CASE 3
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_60_dim_300 -ws 60 -dim 300 -epoch 5 -verbose 2
+
+# CASE 4
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_120_dim_100_ws_120 -ws 120 -dim 100 -epoch 5 -verbose 2
+
+# CASE 5
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_180_dim_100 -ws 180 -dim 100 -epoch 5 -verbose 2
+
+# CASE 6
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_360_dim_100 -ws 360 -dim 100 -epoch 5 -verbose 2
 ```
+I have 2 different servers: (1) Server_1: 16G RAM, 8 cores and (2) Server_2: 32G RAM, 16 cores. It took **10 mins** to finish `readFromFile()` on Server_1
+* CASE 1 (Server_1): **~60 hrs** [DONE]
+* CASE 2 (Server_1): **~100 hrs** **~ hrs** (started at `2018-09-17.14:27:16`, ended at `2018-09-17.05:22`) [DONE]
+* CASE 3 (Server_1): **~171 hrs** (started at `...`, ended at `...`)
+* CASE 4 (Server_2): **~ hrs** (started at `...`, ended at `...`)
+* CASE 5:
+* CASE 6:
 
 ### Print feature vector
 Print feature vector by itemid and its value
