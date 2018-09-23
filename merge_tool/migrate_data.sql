@@ -29,7 +29,7 @@ SELECT  itemid,
         percentile75th,
         max_value,
         distribution_img,
-        -1
+        -1 as conceptid,
         current_timestamp as createdAt,
         current_timestamp as updatedAt
 FROM mimiciii.jvn_items;
@@ -68,7 +68,7 @@ FROM mimiciii.jvn_item_mapping;
 
 -- JvnValueMappings:
 INSERT INTO "JvnValueMappings"(itemid,
-                               value,
+                               "value",
                                unified_value,
                                "createdAt",
                                "updatedAt")

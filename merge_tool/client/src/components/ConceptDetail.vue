@@ -1,6 +1,6 @@
 <template>
   <v-layout row>
-    <v-flex xs4>
+    <v-flex xs3>
       <panel title="Concept Info">
         <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
         <div slot="content">
@@ -85,7 +85,7 @@
     </v-flex>
 
     <!--Detail information-->
-    <v-flex xs8>
+    <v-flex xs9>
       <v-tabs
         color="blue"
         dark
@@ -110,6 +110,7 @@
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.itemid }}</td>
                 <td class="text-xs-left">{{ props.item.label }}</td>
+                <td class="text-xs-left">{{ props.item.abbr }}</td>
                 <td class="text-xs-left">{{ props.item.dbsource }}</td>
                 <td>{{ props.item.isnumeric}}</td>
                 <td>{{ props.item.min_value }}</td>
@@ -196,6 +197,7 @@ export default {
       detailItemHeaders: [
         { text: 'Id', value: 'itemid' },
         { text: 'Name', value: 'label' },
+        { text: 'Abbr', value: 'abbr' },
         { text: 'Source', value: 'dbsource' },
         { text: 'Numeric', value: 'isnumeric' },
         { text: 'Min', value: 'min_value' },
