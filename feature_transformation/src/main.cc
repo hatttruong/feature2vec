@@ -11,6 +11,7 @@
 #include "args.h"
 #include "dictionary.h"
 #include "test.h"
+#include "utils.h"
 
 using namespace feature2vec;
 
@@ -110,6 +111,8 @@ void train(const std::vector<std::string> args) {
   }
   ofs.close();
   feature2vec.train(a);
+  std::cerr << "\nDone train at: " << utils::currentDateTime() << std::endl;
+
   feature2vec.saveModel();
   feature2vec.saveVectors();
 }
