@@ -33,9 +33,13 @@
                   <td>{{ props.item.percentile50th }}</td>
                   <td>{{ props.item.percentile75th }}</td>
                   <td>{{ props.item.max_value }}</td>
+                  <td>
+                    <v-icon v-if="props.item.done">fas fa-check</v-icon>
+                    <v-icon v-else>far fa-check</v-icon>
+                  </td>
                 </tr>
                 <tr v-if="opened.includes(props.item.itemid)">
-                  <td colspan="10" v-if="props.item.isnumeric">
+                  <td colspan="11" v-if="props.item.isnumeric">
                     <img v-bind:src="'/static/distributions/' + props.item.distribution_img" height="200px" />
                     <!--<v-img :src="'/static/distributions/' + props.item.distribution_img"></v-img>-->
                   </td>
@@ -76,7 +80,8 @@ export default {
         {text: '25th', value: 'percentile25th'},
         {text: '50th', value: 'percentile50th'},
         {text: '75th', value: 'percentile75th'},
-        {text: 'Max', value: 'max_value'}
+        {text: 'Max', value: 'max_value'},
+        {text: 'Done', value: 'done'}
       ],
       opened: [],
       search: ''
@@ -84,6 +89,9 @@ export default {
   },
   async mounted () {
     this.items = (await ItemService.index()).data
+    for (let item of this.items) {
+      item.done = item.conceptid > 0
+    }
     console.log('items', this.items)
   },
   methods: {

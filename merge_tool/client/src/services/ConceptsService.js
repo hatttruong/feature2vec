@@ -9,5 +9,8 @@ export default {
   },
   post (concept) {
     return Api().post('create-concept', concept)
+  },
+  put (concept) {
+    return Api().put(`concepts/${concept.conceptid}`, concept)
   }
 }

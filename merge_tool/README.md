@@ -141,6 +141,8 @@ npm install --save vuex-router-sync
     + Sequelize automatically add "s" at the end of name of table in Postgresql (???), for example, `JvnItem` model will be `JvnItems` table
     + Sequelize uses double quotes when creating the tables and in Postgres, the tables where created using double quotes which makes the names case sensitive ("Devices" is a different name then Devices)
 
+- [persist many-to-many association to database](https://grokonez.com/node-js/sequelize-many-to-many-association-nodejs-express-mysql)
+
 ## Client Notes:
 - load image: [read here](https://webpack.js.org/guides/asset-management/#loading-images)
     + install `file-loader`
@@ -176,11 +178,11 @@ npm install --save vuex-router-sync
 - Concept detail page:
     - show distributions
     - **add more item**
+    - save object to postgres
     
 ## TODO
 - Concept detail page:
     - drag & drop categories values
-    - save object to postgres
     
 - Items page:
     - Show list of values when click on Item

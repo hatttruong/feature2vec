@@ -18,19 +18,32 @@
 
 <script>
 import Panel from '@/components/Panel'
+import ConceptsService from '@/services/ConceptsService'
+import ItemService from '@/services/ItemsService'
 
 export default {
   name: 'Dashboard',
   data () {
     return {
-      totalItems: 1000,
-      processedItems: 0,
-      autoConcepts: 1000,
-      processedConcepts: 0
+      totalItems: null,
+      processedItems: null,
+      autoConcepts: null,
+      processedConcepts: null
     }
   },
   components: {
     Panel
+  },
+  async mounted () {
+    // load all items which are not processed
+    const items = (await ItemService.index()).data
+    this.totalItems = items.length
+    this.processedItems = items.filter(item => item.conceptid > 0).length
+
+    // concepts
+    const concepts = (await ConceptsService.index()).data
+    this.autoConcepts = concepts.filter(concept => concept.created_by === 'SYS').length
+    this.processedConcepts = concepts.filter(concept => concept.created_by === 'USER').length
   }
 }
 </script>

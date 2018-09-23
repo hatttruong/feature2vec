@@ -21,5 +21,7 @@ module.exports = (app) => {
   app.get('/concepts/:conceptid',
     ConceptsController.show)
   app.post('/create-concept',
-    ConceptsController.post)
+    ConceptsController.post),
+  app.put('/concepts/:conceptid',
+    ConceptsController.put)
 }

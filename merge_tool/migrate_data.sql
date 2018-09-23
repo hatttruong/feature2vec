@@ -13,6 +13,7 @@ INSERT INTO "JvnItems" (itemid,
                         percentile75th,
                         max_value,
                         distribution_img,
+                        conceptid,
                         "createdAt",
                         "updatedAt")
 SELECT  itemid,
@@ -28,6 +29,7 @@ SELECT  itemid,
         percentile75th,
         max_value,
         distribution_img,
+        -1
         current_timestamp as createdAt,
         current_timestamp as updatedAt
 FROM mimiciii.jvn_items;

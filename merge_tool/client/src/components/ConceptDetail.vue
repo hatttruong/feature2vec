@@ -44,6 +44,7 @@
           <v-data-table
             :headers="selectedItemHeaders"
             :items="filteredItems"
+            :hide-headers="true"
             v-model="selected"
             item-key="itemid"
             select-all
@@ -78,7 +79,7 @@
       <div class="danger-alert" v-if="error">
         {{error}}
       </div>
-      <v-btn class="blue" dark @click="createOrEdit" v-if="!this.isViewMode">Create</v-btn>
+      <v-btn class="blue" dark @click="createOrEdit" v-if="!this.isViewMode">Done</v-btn>
       <v-btn class="blue" dark @click="turnEditMode" v-if="!this.isViewMode">Cancel</v-btn>
       <v-btn class="blue" dark @click="turnEditMode" v-else>Edit</v-btn>
     </v-flex>
@@ -136,13 +137,13 @@
           <v-card flat v-if="tab.id == 'categoryvalues' && !concept.isnumeric">
             <v-data-table
               :headers="categoryHeaders"
-              :items="selected"
+              :items="selectedValueMapping"
+              :rows-per-page-items=[25,50,100]
               class="elevation-1">
               <template slot="items" slot-scope="props">
                 <td class="text-xs-left">{{ props.item.itemid }}</td>
-                <td class="text-xs-left">{{ props.item.label }}</td>
-                <td class="text-xs-left">{{ props.item.dbsource }}</td>
-                <td class="text-xs-left">{{ props.item.values}}</td>
+                <td class="text-xs-left">{{ props.item.value }}</td>
+                <td class="text-xs-left">{{ props.item.unified_value }}</td>
               </template>
             </v-data-table>
           </v-card>
@@ -195,30 +196,37 @@ export default {
         {text: 'Max', value: 'max_value'}
       ],
       categoryHeaders: [
-        { text: 'Id', value: 'itemid' },
-        { text: 'Name', value: 'label' },
-        { text: 'Source', value: 'dbsource' },
-        { text: 'Value', value: 'value' }
+        { text: 'Id', value: 'itemid', sortable: !1 },
+        { text: 'Value', value: 'value' },
+        { text: 'Unified Value', value: 'unified_value' }
       ]
     }
   },
   async mounted () {
     // load all items which are not processed
     this.items = (await ItemService.index()).data
+    for (const item of this.items) {
+      item.JvnValueMapping = []
+      item.JvnValueMapping.push({itemid: 1, value: 'abc', unified_value: 'abc 123'})
+      item.JvnValueMapping.push({itemid: 2, value: 'def', unified_value: 'def 123'})
+    }
 
     // load concept
     const conceptid = this.$route.params.conceptid
-    if (conceptid) {
+    if (conceptid > 0) {
       this.isViewMode = true
       this.concept = (await ConceptsService.show(conceptid)).data
       for (const selItem of this.concept.JvnItem) {
+        selItem.JvnValueMapping = []
+        selItem.JvnValueMapping.push({itemid: 1, value: 'abc', unified_value: 'abc 123'})
+        selItem.JvnValueMapping.push({itemid: 2, value: 'def', unified_value: 'def 123'})
         this.selected.push(Object.assign({}, selItem))
       }
       console.log('this.selected', this.selected)
       console.log('this.concept', this.concept)
     } else {
-      this.concept = {name: ''}
-      console.log('TODO')
+      this.isViewMode = false
+      this.concept = {name: '', isnumeric: false}
     }
   },
   computed: {
@@ -226,6 +234,13 @@ export default {
       const { searchName, selected } = this
       return this.items
         .filter(item => selected.indexOf(item) > -1 || searchName === '' || item.label.toLowerCase().indexOf(searchName.toLowerCase()) > -1)
+    },
+    selectedValueMapping () {
+      const valueMappings = []
+      this.selected.forEach(item => valueMappings.push(item.JvnValueMapping))
+      const flattened = [].concat(...valueMappings)
+      console.log(flattened)
+      return flattened
     }
   },
   methods: {
@@ -233,7 +248,12 @@ export default {
       try {
         this.concept.JvnItem = this.selected
         console.log('createOrEdit', this.concept)
-        await ConceptsService.post(this.concept)
+
+        if (this.concept.conceptid > 0) {
+          await ConceptsService.put(this.concept)
+        } else {
+          await ConceptsService.post(this.concept)
+        }
         this.$router.push({
           name: 'concepts'
         })

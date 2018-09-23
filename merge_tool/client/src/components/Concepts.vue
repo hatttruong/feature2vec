@@ -4,7 +4,7 @@
       <panel title="Concepts">
         <v-btn
           slot="action"
-          @click="navigateTo({name: 'merge'})"
+          @click="navigateTo({name: 'concept', params: { conceptid: -1 }})"
           class="blue accent-1"
           light small absolute right middle fab>
           <v-icon>add</v-icon>

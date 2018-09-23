@@ -18,7 +18,8 @@ module.exports = (sequelize, DataTypes) => {
     percentile50th: DataTypes.DOUBLE,
     percentile75th: DataTypes.DOUBLE,
     max_value: DataTypes.DOUBLE,
-    distribution_img: DataTypes.STRING(500)
+    distribution_img: DataTypes.STRING(500),
+    conceptid: DataTypes.INTEGER
   })
 
   JvnItem.associate = function (models) {
