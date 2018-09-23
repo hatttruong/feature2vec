@@ -488,4 +488,31 @@ def insert_item_info(itemid, values, is_numeric, linksto):
     else:
         # handle category item
         insert_jvn_items(
-            itemid, label, abbr, dbsource, linksto, False)
+            itemid, label, abbr, dbsource, linksto, False, values=values)
+
+
+def insert_value_mapping():
+    """
+    Ad-hoc functions
+
+    """
+    # TODO: parameters
+    concept_dir = '../data'
+    query = "SELECT itemid FROM jvn_items WHERE isnumeric = 'f'"
+    category_df = execute_query_to_df(query)
+    category_ids = category_df.itemid.tolist()
+    logger.info('Total category items: %s', len(category_ids))
+
+    for index, itemid in enumerate(category_ids):
+        df = load_values_of_itemid(itemid, 'chartevents')
+        if df.shape[0] > 0:
+            df = df[~df['value'].isnull()]
+            values = df.value.unique().tolist()
+            for value in values:
+                value = str(value).replace("'", "''")
+                insert_query = "INSERT INTO \
+                    jvn_value_mapping (itemid, value, unified_value) \
+                    VALUES (%s, '%s', '%s') \
+                    ON CONFLICT(itemid, value) DO NOTHING" % (itemid, value, value)
+                execute_non_query(insert_query)
+        logger.info('*** DONE %s/%s ***', index + 1, len(category_ids))

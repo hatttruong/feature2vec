@@ -59,12 +59,9 @@ $ python3 main.py prepare_numeric_item
 ```
 
 - Backup data of `jvn_items` to file:
-```
-# Backup
-$ pg_dump -U mimicuser -d mimic -t mimiciii.jvn_items > /Users/hatruong/hagit/feature2vec/mics/jvn_items_data.sql
 
-# Restore
-$ pg_dump -U mimicuser -d mimic  -f /Users/hatruong/hagit/feature2vec/mics/jvn_items_data.sql
+```
+TODO
 ```
 
 * **Step 2**: Crawl google search result for each items (save to files and store at `data/webpages`)

@@ -26,7 +26,7 @@ CREATE TABLE jvn_items(
     percentile50th double precision,
     percentile75th double precision,
     max_value double precision,
-    distribution_img varchar(500),
+    distribution_img varchar(500)
     PRIMARY KEY (itemid)
 );
 
@@ -42,10 +42,10 @@ CREATE TABLE jvn_item_mapping(
 
 -- create mapping value table
 CREATE TABLE jvn_value_mapping(
-    conceptid integer REFERENCES jvn_concepts(conceptid),
+    itemid integer REFERENCES jvn_items(itemid),
     value varchar(200),
     unified_value varchar(200),
-    PRIMARY KEY (conceptid, value)
+    PRIMARY KEY (itemid, value)
 );
 
 ---------------------------------

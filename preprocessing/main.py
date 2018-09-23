@@ -9,7 +9,7 @@ import argparse
 
 from src.preprocess import *
 from src.configer import *
-from src.item_preprocessor import cluster, crawl_webpages
+from src.item_preprocessor import cluster, crawl_webpages, insert_value_mapping
 from src import tfidf
 
 Configer = Configer('setting.ini')
@@ -66,3 +66,4 @@ if __name__ == '__main__':
                           model_dir='../models')
     elif args.action == 'cluster':
         cluster()
+        # insert_value_mapping()

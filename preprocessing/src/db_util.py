@@ -302,7 +302,8 @@ def get_auto_clustered_itemids():
 def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
                      min_value=None, max_value=None,
                      percentile25th=None, percentile50th=None,
-                     percentile75th=None, distributionImg=None):
+                     percentile75th=None, distributionImg=None,
+                     values=None):
     insert_query = ''
     label = str(label).replace("'", "''")
     abbr = str(abbr).replace("'", "''")
@@ -323,6 +324,15 @@ def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
             itemid, label, abbr, dbsource, linksto, isnumeric)
 
     execute_non_query(insert_query)
+
+    if !isnumeric and values is not None:
+        for value in values:
+            value = str(value).replace("'", "''")
+            insert_query = "INSERT INTO \
+                jvn_value_mapping (itemid, value, unified_value) \
+                VALUES (%s, '%s', '%s') \
+                ON CONFLICT(itemid, value) DO NOTHING" % (itemid, value, value)
+            execute_non_query(insert_query)
 
 
 def insert_generated_concept(concept_obj):
@@ -355,4 +365,3 @@ def insert_generated_concept(concept_obj):
             VALUES (%s, %s, %s, %s)" % (
             itemid, conceptid, score['label_score'], score['value_score'])
         execute_non_query(insert_query)
-
