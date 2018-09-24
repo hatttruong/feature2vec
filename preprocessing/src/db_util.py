@@ -325,7 +325,7 @@ def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
 
     execute_non_query(insert_query)
 
-    if !isnumeric and values is not None:
+    if isnumeric is False and values is not None:
         for value in values:
             value = str(value).replace("'", "''")
             insert_query = "INSERT INTO \

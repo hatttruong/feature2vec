@@ -8,8 +8,8 @@ import logging
 import argparse
 
 from src.preprocess import *
+from src.item_preprocessor import *
 from src.configer import *
-from src.item_preprocessor import cluster, crawl_webpages, insert_value_mapping
 from src import tfidf
 
 Configer = Configer('setting.ini')
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         'action',
         choices=['define_concepts', 'update_chartevents',
                  'create_train_dataset', 'crawl_webpages',
-                 'tfidf_medical_webpages', 'cluster'],
+                 'tfidf_medical_webpages', 'cluster', 'backup', 'restore'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -67,3 +67,7 @@ if __name__ == '__main__':
     elif args.action == 'cluster':
         cluster()
         # insert_value_mapping()
+    elif args.action == 'backup':
+        backup_merge_data()
+    elif args.action == 'restore':
+        restore_merge_data()

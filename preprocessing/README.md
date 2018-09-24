@@ -78,8 +78,22 @@ python3 main.py tfidf_medical_webpages
 
 TODO: read [KL Divergence](https://bigdatascientistblog.wordpress.com/2017/09/11/a-simple-introduction-to-kullback-leibler-divergence-through-python-code/)
 
+```
+$ cd preprocessing
+$ python3 main.py cluster
+```
 
+* **Step 4**: Because `merge_tool` load data from `public` path of `mimic` database, run `merge_tool/migrate_data.sql` to copy data from `mimiciii` path to `public` path. Then run `merge_tool` website to start merging items. (Please read `merge_tool/README.md` to know to how to start). While merging, run the following commands to back up data to csv (just in case unintended delete actions):
 
+```
+$ cd preprocessing
+$ vi setting.ini
+# SearchPath = public
+# :wq
+
+$ python3 main.py backup
+$ python3 main.py restore
+```
 
 ## 2.2 Prepare data to train feature
 

@@ -23,6 +23,7 @@ import re
 import seaborn as sns
 import matplotlib.pyplot as plt
 from time import time
+from datetime import datetime
 from scipy import stats
 import numpy as np
 from fuzzywuzzy import fuzz
@@ -516,3 +517,27 @@ def insert_value_mapping():
                     ON CONFLICT(itemid, value) DO NOTHING" % (itemid, value, value)
                 execute_non_query(insert_query)
         logger.info('*** DONE %s/%s ***', index + 1, len(category_ids))
+
+
+def backup_merge_data():
+    """Summary
+    """
+    backup_path = '../backup'
+    tables = ['JvnItems', 'JvnConcepts', 'JvnItemMappings', 'JvnValueMappings']
+    version = '{0:%Y%m%d.%H%M}'.format(datetime.now())
+    logger.info('version=%s', version)
+    for table in tables:
+        query = 'SELECT * FROM "%s"' % table
+        df = execute_query_to_df(query)
+        df.to_csv(
+            os.path.join(backup_path, '%s.%s.csv' % (table, version)),
+            index=False)
+        logger.info('Backup table=%s, total records=%s', table, df.shape[0])
+
+def restore_merge_data(version=None):
+    """Summary
+
+    Args:
+        version (int, optional): Description
+    """
+    pass
