@@ -2,7 +2,8 @@
   <v-layout row>
     <v-flex xs6 offset-xs3>
       <panel title="Dashboard">
-        <div slot="content">
+        <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
+        <div slot="content" v-else>
           <h2>Total Items: <b>{{totalItems}}</b></h2>
           <h2>Processed Items: <b>{{processedItems}}</b></h2>
           <h2>Remaining Items: <b>{{totalItems - processedItems}}</b></h2>
@@ -28,7 +29,8 @@ export default {
       totalItems: null,
       processedItems: null,
       autoConcepts: null,
-      processedConcepts: null
+      processedConcepts: null,
+      loading: true
     }
   },
   components: {
@@ -44,6 +46,7 @@ export default {
     const concepts = (await ConceptsService.index()).data
     this.autoConcepts = concepts.filter(concept => concept.created_by === 'SYS').length
     this.processedConcepts = concepts.filter(concept => concept.created_by === 'USER').length
+    this.loading = false
   }
 }
 </script>

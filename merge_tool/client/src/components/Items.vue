@@ -14,7 +14,8 @@
                 hide-details
               ></v-text-field>
             </v-card-title>
-            <v-data-table
+            <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
+            <v-data-table v-else
               :headers="headers"
               :rows-per-page-items=[10,25,50,100]
               :items="items"
@@ -84,7 +85,8 @@ export default {
         {text: 'Done', value: 'done'}
       ],
       opened: [],
-      search: ''
+      search: '',
+      loading: true
     }
   },
   async mounted () {
@@ -93,6 +95,7 @@ export default {
       item.done = item.conceptid > 0
     }
     console.log('items', this.items)
+    this.loading = false
   },
   methods: {
     toggle (id) {

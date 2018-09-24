@@ -28,7 +28,8 @@
               hide-details
             ></v-text-field>
           </v-card-title>
-          <v-card flat>
+          <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
+          <v-card flat v-else>
             <v-data-table
               :headers="headers"
               :rows-per-page-items=[10,25,50,100]
@@ -71,7 +72,8 @@ export default {
         { text: 'Created By', value: 'created_by' }
       ],
       searchCreatedBy: '',
-      searchName: ''
+      searchName: '',
+      loading: true
     }
   },
   methods: {
@@ -83,6 +85,7 @@ export default {
   async mounted () {
     this.concepts = (await ConceptsService.index()).data
     console.log('Mounted Concepts', this.concepts)
+    this.loading = false
   },
   computed: {
     filteredConcepts () {

@@ -13,6 +13,8 @@ module.exports = (app) => {
 
   app.get('/items',
     ItemsController.index)
+  app.get('/items/:itemid',
+    ItemsController.show)
   app.post('/items',
     ItemsController.post)
 

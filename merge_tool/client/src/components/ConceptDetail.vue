@@ -1,8 +1,8 @@
 <template>
-  <v-layout row>
+  <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
+  <v-layout row v-else>
     <v-flex xs3>
       <panel title="Concept Info">
-        <img v-if="this.loading" src="https://i.imgur.com/JfPpwOA.gif" />
         <div slot="content">
           <v-text-field
             label="Concept Name"
@@ -175,7 +175,7 @@ export default {
   },
   data () {
     return {
-      loading: false,
+      loading: true,
       concept: [],
       items: [],
       selected: [],
@@ -214,7 +214,7 @@ export default {
     }
   },
   async mounted () {
-    // load all items which are not processed
+    // load all items without JvnValueMapping to improve performance
     this.items = (await ItemService.index()).data
 
     // load concept
@@ -233,6 +233,7 @@ export default {
       this.isViewMode = false
       this.concept = {name: '', isnumeric: false}
     }
+    this.loading = false
   },
   computed: {
     filteredItems () {
@@ -263,7 +264,15 @@ export default {
     turnEditMode () {
       this.isViewMode = !this.isViewMode
     },
-    setValueMapping () {
+    async setValueMapping () {
+      for (const selItem of this.selected) {
+        if (!selItem.JvnValueMapping) {
+          // load item detail and replace it in this.items
+          console.log('load detail of itemid=', selItem.itemid)
+          const detailItem = (await ItemService.show(selItem.itemid)).data
+          selItem.JvnValueMapping = detailItem.JvnValueMapping
+        }
+      }
       const valueMappings = []
       this.selected.forEach(item => valueMappings.push(item.JvnValueMapping))
       this.selectedValueMapping = [].concat(...valueMappings)

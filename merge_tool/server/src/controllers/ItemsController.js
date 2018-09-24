@@ -5,12 +5,26 @@ module.exports = {
   async index (req, res) {
     try {
       console.log('Item:', JvnItem)
-      let items = await JvnItem.findAll({ include: [{ model: JvnValueMapping, as: 'JvnValueMapping' }] })
+      let items = await JvnItem.findAll()
       res.send(items)
     } catch (e) {
       console.log('ERROR', e)
       res.status(500).send({
         error: 'an error has occurred trying to fetch the items'
+      })
+    }
+  },
+  async show (req, res) {
+    try {
+      const item = await JvnItem.findById(req.params.itemid, {
+        include: [{
+          model: JvnValueMapping, as: 'JvnValueMapping' }]
+      })
+      res.send(item)
+    } catch (e) {
+      console.log('ERROR func findById', e)
+      res.status(500).send({
+        error: 'an error has occurred trying to fetch the concepts'
       })
     }
   },
