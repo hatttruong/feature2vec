@@ -179,12 +179,11 @@ npm install --save vuex-router-sync
     - show distributions
     - **add more item**
     - save object to postgres
-    
-## TODO
-- Concept detail page:
-    - drag & drop categories values
-    
+    - update unified categories values
 - Items page:
     - Show list of values when click on Item
+    
+## TODO
+
 - Concepts page:
     - Show items belong to Concepts

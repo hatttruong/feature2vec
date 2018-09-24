@@ -45,7 +45,17 @@
                     <!--<v-img :src="'/static/distributions/' + props.item.distribution_img"></v-img>-->
                   </td>
                   <td colspan="10" v-else>
-                    TODO!!
+                    <v-data-table
+                      :headers="categoryHeaders"
+                      :items="props.item.JvnValueMapping"
+                      :rows-per-page-items=[25,50,100]
+                      class="elevation-1">
+                      <template slot="items" slot-scope="props">
+                          <td class="text-xs-left">{{ props.item.itemid }}</td>
+                          <td class="text-xs-left">{{ props.item.value }}</td>
+                          <td class="text-xs-left">{{props.item.unified_value}}</td>
+                      </template>
+                    </v-data-table>
                   </td>
                 </tr>
               </template>
@@ -84,6 +94,11 @@ export default {
         {text: 'Max', value: 'max_value'},
         {text: 'Done', value: 'done'}
       ],
+      categoryHeaders: [
+        { text: 'Id', value: 'itemid', sortable: !1 },
+        { text: 'Value', value: 'value', sortable: !1 },
+        { text: 'Unified Value', value: 'unified_value', sortable: !1 }
+      ],
       opened: [],
       search: '',
       loading: true
@@ -98,7 +113,13 @@ export default {
     this.loading = false
   },
   methods: {
-    toggle (id) {
+    async toggle (id) {
+      console.log('load detail itemid=', id)
+      const idxItem = this.items.findIndex(x => x.itemid === id)
+      if (idxItem > -1 && !this.items[idxItem].JvnValueMapping) {
+        const detailItem = (await ItemService.show(id)).data
+        this.items[idxItem].JvnValueMapping = detailItem.JvnValueMapping
+      }
       console.log('toggle id=', id)
       const index = this.opened.indexOf(id)
       console.log('opened?=', index > -1)
