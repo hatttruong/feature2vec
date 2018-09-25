@@ -32,7 +32,8 @@ SELECT  itemid,
         -1 as conceptid,
         current_timestamp as createdAt,
         current_timestamp as updatedAt
-FROM mimiciii.jvn_items;
+FROM mimiciii.jvn_items
+ON CONFLICT(itemid) DO NOTHING;
 
 -- JvnConcepts
 INSERT INTO "JvnConcepts" (conceptid,
@@ -77,4 +78,5 @@ SELECT  itemid,
         unified_value,
         current_timestamp as createdAt,
         current_timestamp as updatedAt
-FROM mimiciii.jvn_value_mapping;
+FROM mimiciii.jvn_value_mapping
+ON CONFLICT(itemid, value) DO NOTHING;
