@@ -252,11 +252,22 @@ def cluster():
     logger.info('remaining %s items in total (CV and MV)',
                 len(actual_items_dict))
 
+    # insert items not belong to any cluster to jvn_items
     item_with_values = dict()
+    logger.info('INSERT ITEMS not belong to any cluster to jvn_items')
+    for itemid, item in actual_items_dict.items():
+        # get and insert item info to jvn_items
+        result = get_item_with_values(itemid, item['linksto'])
+        insert_item_info(itemid, result['values'], result['is_numeric'],
+                         item['linksto'])
+        item_with_values[itemid] = result
+        logger.info('*** INSERT %s/%s jvn_items ***',
+                    len(item_with_values), len(actual_items_dict))
+
     done_cv_items = list()
     total_cv_items = len(
         [_ for _ in actual_items_dict.keys() if _ <= SEPERATED_ID])
-
+    logger.info('CLUSTER ITEMS...')
     for itemid, item in actual_items_dict.items():
         # for each CareVue, find its similar items which can be both CV and MV
         if itemid <= SEPERATED_ID and itemid not in done_cv_items:
@@ -422,7 +433,7 @@ def get_item_with_values(itemid, linksto):
         itemid (TYPE): Description
 
     Returns:
-        dict: Description
+        dict: {'values': values, 'is_numeric': is_numeric}
     """
     logger.info('get_item_with_values: %s', locals())
 
@@ -441,8 +452,6 @@ def get_item_with_values(itemid, linksto):
         is_numeric = False
         df = df[~df['value'].isnull()]
         values = df.value.unique().tolist()
-
-    insert_item_info(itemid, values, is_numeric, linksto)
 
     return {'values': values, 'is_numeric': is_numeric}
 
@@ -494,8 +503,9 @@ def insert_item_info(itemid, values, is_numeric, linksto):
 
 def insert_value_mapping():
     """
+    REMOVED
     Ad-hoc functions
-
+    This function is added into insert_jvn_items
     """
     # TODO: parameters
     concept_dir = '../data'
@@ -533,6 +543,7 @@ def backup_merge_data():
             os.path.join(backup_path, '%s.%s.csv' % (table, version)),
             index=False)
         logger.info('Backup table=%s, total records=%s', table, df.shape[0])
+
 
 def restore_merge_data(version=None):
     """Summary

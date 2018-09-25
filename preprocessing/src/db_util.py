@@ -309,9 +309,10 @@ def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
     abbr = str(abbr).replace("'", "''")
     if isnumeric:
         insert_query = "INSERT INTO jvn_items \
-            (itemid, label, abbr, dbsource, linksto, isnumeric, min, max, \
-            percentile25th, percentile50th, percentile75th, distribution_img) \
-            VALUES (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s') \
+            (itemid, label, abbr, dbsource, linksto, isnumeric, min_value, \
+             max_value, percentile25th, percentile50th, percentile75th, \
+             distribution_img) VALUES \
+             (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s') \
             ON CONFLICT(itemid) DO NOTHING" % (
             itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
             max_value, percentile25th, percentile50th, percentile75th,

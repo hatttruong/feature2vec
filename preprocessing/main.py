@@ -66,7 +66,6 @@ if __name__ == '__main__':
                           model_dir='../models')
     elif args.action == 'cluster':
         cluster()
-        # insert_value_mapping()
     elif args.action == 'backup':
         backup_merge_data()
     elif args.action == 'restore':
