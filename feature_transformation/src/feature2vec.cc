@@ -207,12 +207,19 @@ void Feature2Vec::skipgram(Model& model, real lr,
   // update static features with non-static feature context
   int32_t c_idx;
   for (int32_t i = 0; i < nb_static; i++) {
-    const std::vector<int32_t>& nsegments = dict_->getSegments(events[i].idx);
+    try {
+      const std::vector<int32_t>& nsegments = dict_->getSegments(events[i].idx);
 
-    // update with context of a half number of non-static features
-    for (int32_t j = 0; j < (events.size() - nb_static) * args_->ps; j++) {
-      c_idx = uniform_nst(model.rng);
-      model.update(nsegments, events[c_idx].idx, lr);
+      // update with context of a half number of non-static features
+      for (int32_t j = 0; j < (events.size() - nb_static) * args_->ps; j++) {
+        c_idx = uniform_nst(model.rng);
+        model.update(nsegments, events[c_idx].idx, lr);
+      }
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR skipgram(): update static features with non-static feature context.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + "\nWhat(): " + e.what());
     }
   }
 
@@ -225,23 +232,38 @@ void Feature2Vec::skipgram(Model& model, real lr,
 
     // STATIC CONTEXT
     // update with context of a half number of static features
-    for (int32_t j = 0; j < nb_static * args_->ps; j++) {
-      c_idx = uniform_st(model.rng);
-      model.update(nsegments, events[c_idx].idx, lr);
+    try {
+      for (int32_t j = 0; j < nb_static * args_->ps; j++) {
+        c_idx = uniform_st(model.rng);
+        model.update(nsegments, events[c_idx].idx, lr);
+      }
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR skipgram(): update non-static features with static.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + "\nWhat(): " + e.what());
     }
 
-    // NONE-STATIC context
-    below_mins_ago = events[i].minutes_ago - args_->ws;
-    above_mins_ago = events[i].minutes_ago + args_->ws;
-    boundary = uniform(model.rng);
-    for (int32_t c = - boundary; c <= + boundary; c++) {
-      if (c != 0 && i + c >= nb_static && i + c < events.size()) {
 
-        if (events[i + c].minutes_ago >= below_mins_ago
-            && events[i + c].minutes_ago <= above_mins_ago) {
-          model.update(nsegments, events[i + c].idx, lr);
+    // NONE-STATIC context
+    try {
+      below_mins_ago = events[i].minutes_ago - args_->ws;
+      above_mins_ago = events[i].minutes_ago + args_->ws;
+      boundary = uniform(model.rng);
+      for (int32_t c = - boundary; c <= + boundary; c++) {
+        if (c != 0 && i + c >= nb_static && i + c < events.size()) {
+
+          if (events[i + c].minutes_ago >= below_mins_ago
+              && events[i + c].minutes_ago <= above_mins_ago) {
+            model.update(nsegments, events[i + c].idx, lr);
+          }
         }
       }
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR skipgram(): update non-static features with other non-static features.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + "\nWhat(): " + e.what());
     }
   }
 }
