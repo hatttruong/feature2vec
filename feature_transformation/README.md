@@ -115,7 +115,7 @@ sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /me
 sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_60_dim_300 -ws 60 -dim 300 -epoch 5 -verbose 2
 
 # CASE 4
-sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_120_dim_100_ws_120 -ws 120 -dim 100 -epoch 5 -verbose 2
+sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_120_dim_100 -ws 120 -dim 100 -epoch 5 -verbose 2
 
 # CASE 5
 sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_not_merge.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_180_dim_100 -ws 180 -dim 100 -epoch 5 -verbose 2
@@ -125,12 +125,12 @@ sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /me
 ```
 I have 2 different servers: (1) Server_1: 16G RAM, 8 cores and (2) Server_2: 32G RAM, 16 cores. It took **10 mins** to finish `readFromFile()` on Server_1 and **66 mins** on Server_2 (?!?)
 
-* CASE 1 `-ws 60 -dim 100`: **~60 hours** [Server_1]
-* CASE 2 `-ws 60 -dim 200`: **~110 hours** (started at `2018-09-17.14:27:16`, ended at `2018-09-22.05:22`) [Server_1]
-* CASE 3 `-ws 60 -dim 300`: **~171 hours** (started at `...`, ended at `...`)[Server_1] ... remaining 140 hours (24.09 15:30)
-* CASE 4 `-ws 120 -dim 100`: **~17x hours** (started at `2018-09-24.22:41:28`, ended at `...`)[Server_2] ... remaining 121 hours (25.09 10:30)
-* CASE 5 `-ws 180 -dim 100`:
-* CASE 6 `-ws 360 -dim 100`:
+* CASE 1 `-ws 60 -dim 100 -thread 12`: **~60 hours** [Server_1]
+* CASE 2 `-ws 60 -dim 200 -thread 12`: **~110 hours** (started at `2018-09-17.14:27:16`, ended at `2018-09-22.05:22`) [Server_1]
+* CASE 3 `-ws 60 -dim 300 -thread 12`: **~171 hours** (started at `2018-09-28.16:03:45`, ended at `...`)[Server_1] ... % remaining 37 hours (05.19 10:30)
+* CASE 4 `-ws 120 -dim 100 -thread 8`: **~192 hours** (started at `2018-09-25.15:26:55`, ended at `2018-10-03.09:42:58`)[Server_2]
+* CASE 5 `-ws 180 -dim 100`: **~ hours** (started at `...`, ended at `...`) [Server_2]
+* CASE 6 `-ws 360 -dim 100`: **~ hours** (started at `...`, ended at `...`) [Server_1]
 
 ### Print feature vector
 Print feature vector by itemid and its value

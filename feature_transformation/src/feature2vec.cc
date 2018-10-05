@@ -213,7 +213,9 @@ void Feature2Vec::skipgram(Model& model, real lr,
       // update with context of a half number of non-static features
       for (int32_t j = 0; j < (events.size() - nb_static) * args_->ps; j++) {
         c_idx = uniform_nst(model.rng);
-        model.update(nsegments, events[c_idx].idx, lr);
+        if (c_idx >= 0 && c_idx < events.size()) {
+          model.update(nsegments, events[c_idx].idx, lr);
+        }
       }
     } catch (std::exception& e) {
       utils::log(
@@ -235,7 +237,9 @@ void Feature2Vec::skipgram(Model& model, real lr,
     try {
       for (int32_t j = 0; j < nb_static * args_->ps; j++) {
         c_idx = uniform_st(model.rng);
-        model.update(nsegments, events[c_idx].idx, lr);
+        if (c_idx >= 0 && c_idx < events.size()) {
+          model.update(nsegments, events[c_idx].idx, lr);
+        }
       }
     } catch (std::exception& e) {
       utils::log(

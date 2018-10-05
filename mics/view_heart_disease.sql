@@ -5,6 +5,7 @@
 -- 746 Other congenital anomalies of heart: BETWEEN '7461 ' AND '7469 '
 -- 785 Symptoms involving cardiovascular system: '7850', '7851', '7852', '7853'
 -- 786.5 Chest pain
+-- TOTAL: 3416 admissions
 
 DROP MATERIALIZED VIEW IF EXISTS v_first_heart_admission CASCADE;
 CREATE MATERIALIZED VIEW v_first_heart_admission AS
