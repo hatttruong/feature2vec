@@ -30,7 +30,8 @@ if __name__ == '__main__':
         'action',
         choices=['define_concepts', 'update_chartevents',
                  'create_train_dataset', 'crawl_webpages',
-                 'tfidf_medical_webpages', 'cluster', 'backup', 'restore'],
+                 'tfidf_medical_webpages', 'cluster', 'backup', 'restore',
+                 'create_los_dataset'],
         help='define action for preprocess'
     )
     parser.add_argument('-p', '--process', default=2, type=int,
@@ -46,16 +47,16 @@ if __name__ == '__main__':
         help='directory to store train data (options for create train data)')
 
     args = parser.parse_args()
-    if args.action == 'create_train_dataset':
-        create_train_dataset(export_dir=args.export_dir,
-                             processes=args.process,
-                             concept_dir=args.concept_dir)
+    if args.action == 'define_concepts':
+        define_concepts(output_dir=args.concept_dir,
+                        processes=args.process)
     elif args.action == 'update_chartevents':
         update_chartevents_value(concept_dir=args.concept_dir)
 
-    elif args.action == 'define_concepts':
-        define_concepts(output_dir=args.concept_dir,
-                        processes=args.process)
+    elif args.action == 'create_train_dataset':
+        create_train_feature_dataset(export_dir=args.export_dir,
+                                     processes=args.process,
+                                     concept_dir=args.concept_dir)
     elif args.action == 'crawl_webpages':
         # TODO: parameters
         export_dir = '../data/webpages'
@@ -70,3 +71,7 @@ if __name__ == '__main__':
         backup_merge_data()
     elif args.action == 'restore':
         restore_merge_data()
+    elif args.action == 'create_los_dataset':
+        create_cvd_los_dataset(export_dir=args.export_dir,
+                               processes=args.process,
+                               concept_dir=args.concept_dir)

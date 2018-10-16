@@ -111,20 +111,21 @@ Here is command to generate:
 ```
 $ (on local machine: 8G Ram)
 $ cd preprocessing
-$ python3 main.py define_concepts -cd ../data -p 12
+$ python3 main.py define_concepts -cd ../data -p 16
 
-# Total concepts: 4
+# Total concepts: 6
 # TOTAL DURATION (static features): 0.620664 seconds
 # TOTAL DURATION (load raw non-static concepts): 218.988309 seconds ~ 3.5mins
 # Number of concept arguments: 6
 # DONE 6376/6376 concepts
-# TOTAL DURATION (create non-static concepts): 1864.641468 seconds ~ 31mins
-# seconds/concept: 0.29244690526976164 seconds
-# mean query times: 3.2923380912797993
-# Total Values: 122198
-# Total Segments: 509478
-# Total Features: 631676
-
+# TOTAL DURATION (create non-static concepts): 1695.681615 seconds
+# seconds/concept: 0.26594755567754075 seconds
+# mean query times: 4.027205550345045
+# Total numeric features: 2,669
+# Total categorical features: 3,713
+# Total values of both numeric, categorical: 122,202
+# Total segments of numeric features: 509,470
+# Total values & segments: 631,672
 ```
 
 * `concept_definition.json` structure:
@@ -154,13 +155,15 @@ $ python3 main.py define_concepts -cd ../data -p 12
 }
 ```
 
-* It takes **35 mins** in average for exporting all concept definitions.
+* It takes **28 mins** in average for exporting all concept definitions.
 * In case we don't merge duplicate items:
-    - There are **4** static items in **v_first_admissions**
+    - There are **5** static items in **v_first_admissions** along with **los_icu_h**
     - There are **6376** non-static items in **chartevents**
     - It takes **3.5** mins to extract items from **chartevents** table
     - We don't extract based on **linksto** field of **d_items** because it is INCORRECT
-    - Total features: **631676**
+    - Total numeric features: **2,669**
+    - Total categorical features: **3,713**
+    - Total values of numeric & categorical features: **122,202**
 * In case we merge duplicate items, **TODO**
     - There are **xxx** concepts in **chartevents**
     - It takes **xx** mins to extract items from **chartevents** table
@@ -170,19 +173,21 @@ $ python3 main.py define_concepts -cd ../data -p 12
 ### 2.2.2 Update `chartevents` table:
 
 * Update value of chartevents based on `concept_definition.json`: after exporting `concept_definition.json`, value of `chartevents` table will be updated (the new values are stored in `jvn_value` column).
-* It takes about **9 hrs** to done.
+* It takes about **xx hrs** to done.
 
 ```
+$ cd preprocessing
+$ python3 main.py update_chartevents -cd ../data
 
 # START update value of chartevents based on "concept_definition.json"
-# Total concepts (load from json): 6380
+# Total concepts (load from json): 6382
 # Done: 50/6380 concepts, avg duration: 1.01 seconds/concept
 # Done: 100/6380 concepts, avg duration: 2.75 seconds/concept
 ...
 # DURATION (update values): 50889 seconds ~ 14hrs
 ```
 
-### 2.2.3 Generate `data_train.csv`:
+### 2.2.3 Generate `data_train_chartevents_*.csv`:
 
 Here is command to generate:
 ```
@@ -190,7 +195,7 @@ $ cd preprocessing
 $ python3 main.py create_train_dataset -cd ../data -p 12 -ed ../data/temp
 ```
 
-* `data_train.csv` structure: sorted by hadm_id, minutes_ago and **without** header
+* `data_train_chartevents_*.csv` structure: sorted by hadm_id, minutes_ago and **without** header
 
 ```
 hadm_id, minutes_ago, conceptid, value
@@ -214,3 +219,6 @@ hadm_id, minutes_ago, conceptid, value
 ```
 Total Entries: 177,804,820
 ```
+
+## 2.3 Prepare data to predict LOS using LSTM:
+

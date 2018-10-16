@@ -100,7 +100,8 @@ def get_events_by_admission(admission_id, event_types=['chartevents']):
 
 
 def get_admissions():
-    """Summary
+    """
+    Get all admissions of adult patients who is not dead at hospital
 
     Returns:
         TYPE: Description
@@ -108,8 +109,8 @@ def get_admissions():
     # get all admission id
     # loop through each admission and get its event value
     query = "SELECT DISTINCT hadm_id, gender, marital_status, admission_type, \
-            admission_age, los_icu_h \
-        FROM v_first_admission"
+            admission_age, admission_location, los_icu_h \
+        FROM v_adult_admission"
     df = execute_query_to_df(query)
     return df
 

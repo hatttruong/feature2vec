@@ -1,7 +1,11 @@
-"""
-Attributes:
-    logger (TYPE): Description
-    STATIC_FEATURES (TYPE): Description
+"""Summary
+preprocessor contains functions to train feature to continuous vectors:
+
+- define_concepts:
+- update_chartevents_value:
+- create_train_feature_dataset:
+- create_cvd_los_dataset:
+
 """
 import sys
 import os
@@ -26,12 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 CONCEPT_DEFINITION_FILENAME = 'concept_definition.json'
+NUMERIC_TYPE = 0
+CATEGORICAL_TYPE = 1
 
 STATIC_FEATURES = [('gender', 300001, False),
                    ('marital_status', 300002, False),
                    ('admission_age', 300003, True),
-                   ('los_icu_h', 300004, True)]
-
+                   ('admission_type', 300004, False),
+                   ('admission_location', 300005, False)]
+LOS_ICU_FEATURE = ('los_icu_h', 400001, True)
 
 def export_dict_to_json(dict_data, file_path):
     """
@@ -149,7 +156,7 @@ def create_concept_object(conceptid, name, is_number, values):
     concept_obj = dict()
     concept_obj['conceptid'] = conceptid
     concept_obj['name'] = name
-    concept_obj['type'] = 0 if is_number else 1
+    concept_obj['type'] = NUMERIC_TYPE if is_number else CATEGORICAL_TYPE
     concept_obj['segments'] = list()
     concept_obj['hashmaps'] = list()
 
@@ -242,9 +249,13 @@ def define_concepts(output_dir, processes=8):
             v_first_admission.gender,
             v_first_admission.marital_status
             v_first_admission.admission_age
-            v_first_admission.los_icu_h
-        non-static features: all items which links to chartevents, outputevents,
-            inputevents_cv, inputevents_mv. Currently, we ONLY links to chartevents.
+            v_first_admission.admission_type
+            v_first_admission.admission_location
+        non-static features: all items which links to chartevents. For further
+            investigation, we can use outputevents, inputevents_cv and
+            inputevents_mv.
+        v_first_admission.los_icu_h
+
 
     category features' value will be hashed to integer
     assign unique index for each value of each concepts and for each segments of numeric features
@@ -260,14 +271,16 @@ def define_concepts(output_dir, processes=8):
 
     '''
     define static features
+    IMPORTANT NOTE: LOS in ICU feature is a special feature whose data is
+    stored in admission but is dynamic feature
     '''
     start = datetime.now()
+    # get all from v_adult_admission
     df_admissions = get_admissions()
-    for name, conceptid, is_number in STATIC_FEATURES:
+    for name, conceptid, is_number in STATIC_FEATURES + [LOS_ICU_FEATURE]:
         values = df_admissions[name].tolist()
         values = [v for v in values if v is not None]
-        concept_obj = create_concept_object(conceptid, name, is_number,
-                                            values)
+        concept_obj = create_concept_object(conceptid, name, is_number, values)
         concepts.append(concept_obj)
 
     logger.info('Total concepts: %s', len(concepts))
@@ -325,26 +338,35 @@ def define_concepts(output_dir, processes=8):
             assert not pool._cache, 'cache = %r' % pool._cache
 
     # set id for segments and values
-    count_features = 0
-    count_values = 0
-    count_segments = 0
+    count_numeric = 0       # count numeric feature
+    count_categorical = 0   # count categorical feature
+    count_values = 0        # count all values of both numeric, categorical
+    count_segments = 0      # count segments of numeric features
+    feature_idx = 1         # used to index seperated values & segments of feature
     for concept_obj in concepts:
+        if concept_obj['type'] is NUMERIC_TYPE:
+            count_numeric += 1
+        else:
+            count_categorical += 1
+
         for s in concept_obj['segments']:
-            s['id'] = count_features
-            count_features += 1
+            s['id'] = feature_idx
+            feature_idx += 1
             count_segments += 1
         for v in concept_obj['data']:
-            v['id'] = count_features
-            count_features += 1
+            v['id'] = feature_idx
+            feature_idx += 1
             count_values += 1
 
         logger.debug('conceptid=%s, number values=%s, number segments=%s',
                      concept_obj['conceptid'], len(concept_obj['data']),
                      len(concept_obj['segments']))
 
-    logger.info('Total Values: %s', count_values)
-    logger.info('Total Segments: %s', count_segments)
-    logger.info('Total Features: %s', count_features)
+    logger.info('Total numeric features: %s', count_numeric)
+    logger.info('Total categorical features: %s', count_categorical)
+    logger.info('Total values of both numeric, categorical: %s', count_values)
+    logger.info('Total segments of numeric features: %s', count_segments)
+    logger.info('Total values & segments: %s', feature_idx - 1)
 
     # mapping between itemid and conceptid
     item2concept_dict = create_item2concept()
@@ -500,9 +522,14 @@ def create_item2concept():
     return item2concept
 
 
-def create_train_dataset(export_dir, processes, concept_dir='../data'):
+def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
     """
     Use multiprocessing to get data from postgres
+
+    Args:
+        export_dir (TYPE): Description
+        processes (TYPE): Description
+        concept_dir (str, optional): Description
     """
 
     df_admissions = get_admissions()
@@ -660,3 +687,6 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     size = q_log.qsize()
     if size % 50 == 0:
         logger.info('*********DONE %s ADMISSIONS*********', size)
+
+def create_cvd_los_dataset(export_dir, processes, concept_dir='../data'):
+    pass
