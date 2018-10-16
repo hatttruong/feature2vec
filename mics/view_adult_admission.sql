@@ -1,6 +1,6 @@
 
-DROP MATERIALIZED VIEW IF EXISTS v_first_admission CASCADE;
-CREATE MATERIALIZED VIEW v_first_admission AS
+DROP MATERIALIZED VIEW IF EXISTS v_adult_admission CASCADE;
+CREATE MATERIALIZED VIEW v_adult_admission AS
 WITH admission_detail AS (
     SELECT
         -- patient level factors
@@ -37,11 +37,10 @@ WITH admission_detail AS (
     WHERE a.has_chartevents_data = 1
 )
 
--- filter the first admission, adult (>=15), and not dead at hospital
+-- filter adult (>=15), and not dead at hospital
 SELECT * FROM admission_detail
 WHERE
-    first_hosp_stay = True
-    AND first_icu_stay = True
+    first_icu_stay = True
     AND admission_age >= 15
     AND deathtime IS NULL
 ORDER BY subject_id, admittime, intime;
