@@ -8,6 +8,7 @@ WITH admission_detail AS (
 
         -- hospital level factors
         , a.hadm_id, a.admittime, a.dischtime, a.deathtime
+        -- length of stay in hospital in factional days
         , ROUND( (CAST(EXTRACT(epoch FROM a.dischtime - a.admittime)/(60*60*24) AS numeric)), 4) AS los_hospital
         , ROUND( (CAST(EXTRACT(epoch FROM a.admittime - p.dob)/(60*60*24*365.242) AS numeric)), 4) AS admission_age
         , a.ethnicity, a.admission_type, a.admission_location, a.discharge_location
@@ -20,8 +21,10 @@ WITH admission_detail AS (
 
         -- icu level factors
         , ie.intime, ie.outtime
-        -- length of stay in ICU with unit = factional days
-        , ROUND( (CAST(EXTRACT(epoch FROM ie.outtime - ie.intime)/(60*60*24) AS numeric)), 4) AS los_icu
+        -- distance between admission time and start to be in ICU in minutes
+        , ROUND( (CAST(EXTRACT(epoch FROM ie.intime - a.admittime)/60 AS numeric)) ) AS minutes_before_icu
+        -- length of stay in ICU with unit = minutes
+        , ROUND( (CAST(EXTRACT(epoch FROM ie.outtime - ie.intime)/60 AS numeric)) ) AS los_icu_m
         -- length of stay in ICU with unit = factional hours
         , ROUND( (CAST(EXTRACT(epoch FROM ie.outtime - ie.intime)/(60*60) AS numeric)), 4) AS los_icu_h
         , DENSE_RANK() OVER (PARTITION BY ie.hadm_id ORDER BY ie.intime) AS icustay_seq

@@ -109,8 +109,26 @@ def get_admissions():
     # get all admission id
     # loop through each admission and get its event value
     query = "SELECT DISTINCT hadm_id, gender, marital_status, admission_type, \
-            admission_age, admission_location, los_icu_h \
+            admission_age, admission_location, los_hospital, \
+            los_icu_m, los_icu_h, minutes_before_icu \
         FROM v_adult_admission"
+    df = execute_query_to_df(query)
+    return df
+
+def get_first_heart_admissions():
+    """
+    Get all first admissions of adult patients who have heart disease and
+    is not dead at hospital
+
+    Returns:
+        TYPE: Description
+    """
+    # get all admission id
+    # loop through each admission and get its event value
+    query = "SELECT DISTINCT hadm_id, gender, marital_status, admission_type, \
+            admission_age, admission_location, los_hospital, \
+            los_icu_m, los_icu_h, minutes_before_icu \
+        FROM v_first_heart_admission"
     df = execute_query_to_df(query)
     return df
 
@@ -309,15 +327,7 @@ def insert_jvn_items(itemid, label, abbr, dbsource, linksto, isnumeric,
     label = str(label).replace("'", "''")
     abbr = str(abbr).replace("'", "''")
     if isnumeric:
-        insert_query = "INSERT INTO jvn_items \
-            (itemid, label, abbr, dbsource, linksto, isnumeric, min_value, \
-             max_value, percentile25th, percentile50th, percentile75th, \
-             distribution_img) VALUES \
-             (%s, '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, '%s') \
-            ON CONFLICT(itemid) DO NOTHING" % (
-            itemid, label, abbr, dbsource, linksto, isnumeric, min_value,
-            max_value, percentile25th, percentile50th, percentile75th,
-            distributionImg)
+        INSERT
     else:
         insert_query = "INSERT INTO jvn_items \
             (itemid, label, abbr, dbsource, linksto, isnumeric) \
@@ -367,3 +377,15 @@ def insert_generated_concept(concept_obj):
             VALUES (%s, %s, %s, %s)" % (
             itemid, conceptid, score['label_score'], score['value_score'])
         execute_non_query(insert_query)
+
+def insert_los_group(group_id, lower_bound, upper_bound):
+    """Summary
+
+    Args:
+        lower_bound (TYPE): Description
+        upper_bound (TYPE): Description
+    """
+    insert_query = "INSERT INTO jvn_los_groups \
+        (group_id, lower_bound, upper_bound) \
+        VALUES (%s, %s, %s)" % (group_id, lower_bound, upper_bound)
+    execute_non_query(insert_query)

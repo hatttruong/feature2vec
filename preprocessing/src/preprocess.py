@@ -21,6 +21,7 @@ import pandas as pd
 from datetime import datetime
 from multiprocessing import Pool
 import multiprocessing
+import random
 
 from src.pyhash import *
 from src.db_util import *
@@ -39,6 +40,7 @@ STATIC_FEATURES = [('gender', 300001, False),
                    ('admission_type', 300004, False),
                    ('admission_location', 300005, False)]
 LOS_ICU_FEATURE = ('los_icu_h', 400001, True)
+
 
 def export_dict_to_json(dict_data, file_path):
     """
@@ -549,26 +551,36 @@ def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
     list_args = []
     for index, row in df_admissions.iterrows():
         admission_id = row['hadm_id']
-        if admission_id in exported_admissions:
+        if admission_id in exported_admissions or admission_id is None:
             continue
 
         gender = None if pd.isnull(row['gender']) else row['gender'].strip()
-        admission_age = None if pd.isnull(
-            row['admission_age']) else math.floor(row['admission_age'])
         marital_status = None if pd.isnull(row['marital_status']) else row[
             'marital_status'].strip()
-        los_icu_h = None if pd.isnull(
-            row['los_icu_h']) else math.floor(row['los_icu_h'])
-        list_args.append((admission_id,
-                          gender,
-                          admission_age,
-                          marital_status,
-                          los_icu_h,
-                          export_dir,
-                          q_log))
+        adm_age = None if pd.isnull(
+            row['admission_age']) else math.floor(row['admission_age'])
+        adm_location = None if pd.isnull(row['admission_location']) else row[
+            'admission_location'].strip()
+        adm_type = None if pd.isnull(row['admission_type']) else row[
+            'admission_type'].strip()
+        los_icu_m = None if pd.isnull(
+            row['los_icu_m']) else math.floor(row['los_icu_m'])
+        minutes_before_icu = None if pd.isnull(
+            row['minutes_before_icu']) else math.floor(row['minutes_before_icu'])
+        list_args.append((
+            admission_id,
+            {'gender': gender,
+             'marital_status': marital_status,
+             'admission_age': adm_age,
+             'admission_type': adm_type,
+             'admission_location': adm_location,
+             'los_icu_m': los_icu_m,
+             'minutes_before_icu': minutes_before_icu},
+            export_dir,
+            q_log))
         # DEBUG
-        # if len(list_args) == 100:
-        #     break
+        if len(list_args) == 10:
+            break
         # END DEBUG
 
     logger.info('Remaining: %s admissions', len(list_args))
@@ -602,17 +614,14 @@ def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
     logger.info('run "concat_train_data.sh" to concat all files')
 
 
-def create_admission_train(admission_id, gender, admission_age, marital_status,
-                           los_icu_h, export_dir, q_log):
+def create_admission_train(admission_id, args, export_dir, q_log):
     """Summary
 
     Args:
-        admission_id (TYPE): Description
-        gender (TYPE): Description
-        admission_age (TYPE): Description
-        marital_status (TYPE): Description
-        los_icu_h (TYPE): Description
-        q_log (TYPE): Description
+        admission_id (int): Description
+        args (dict): Description
+        export_dir (string): Description
+        q_log (Queue): Description
 
     Returns:
         TYPE: Description
@@ -645,32 +654,41 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     update_time = d
     logger.debug('Update time: %s seconds', d)
 
-    # add static features
-    static_features = {
-        'gender': gender,
-        'admission_age': admission_age,
-        'marital_status': marital_status,
-        'los_icu_h': los_icu_h,
-    }
+    '''
+    Add LOS in ICU features: generate a multiple events per hour from `intime`
+    to `outtime`
+    '''
+    los_icu_events_df = generate_icu_events(admission_id,
+                                            args['minutes_before_icu'],
+                                            args['los_icu_m'])
+    logger.debug('los_icu_events_df.shape = %s', los_icu_events_df.shape)
+    df_events = df_events.append(los_icu_events_df, ignore_index=True)
+    logger.debug(
+        'number of events (chartevents & los_icu features): %s',
+        df_events.shape[0])
 
+    '''
+    Add static features
+    '''
     static_feature_dict = list()
     for name, conceptid, is_number in STATIC_FEATURES:
-        static_value = static_features[name]
-        if static_value is None:
-            continue
+        if name in args.keys():
+            static_value = args[name]
+            if static_value is None:
+                continue
 
-        static_feature_dict.append({
-            'hadm_id': admission_id,
-            'minutes_ago': -1,
-            'conceptid': conceptid,
-            'value': int(static_value) if is_number else hash(static_value)
-        })
-    temp_df = pd.DataFrame(static_feature_dict)
-    logger.debug('temp_df.shape = %s', temp_df.shape)
+            static_feature_dict.append({
+                'hadm_id': admission_id,
+                'minutes_ago': -1,
+                'conceptid': conceptid,
+                'value': int(static_value) if is_number else hash(static_value)
+            })
+    static_feature_df = pd.DataFrame(static_feature_dict)
+    logger.debug('static_feature_df.shape = %s', static_feature_df.shape)
 
-    df_events = df_events.append(temp_df, ignore_index=True)
+    df_events = df_events.append(static_feature_df, ignore_index=True)
     logger.debug(
-        'number of events (chartevents & static features): %s',
+        'number of events (chartevents, icu & static features): %s',
         df_events.shape[0])
 
     # ORDER BY hadm_id and minutes_ago, then export separately
@@ -688,5 +706,102 @@ def create_admission_train(admission_id, gender, admission_age, marital_status,
     if size % 50 == 0:
         logger.info('*********DONE %s ADMISSIONS*********', size)
 
-def create_cvd_los_dataset(export_dir, processes, concept_dir='../data'):
-    pass
+
+def generate_icu_events(admission_id, minutes_before_icu, los_icu_minutes):
+    """Summary
+
+    Args:
+        admission_id (TYPE): Description
+        minutes_before_icu (TYPE): Description
+        los_icu_minutes (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+    # because los in concept_definition is calculated by hour, interval must
+    # follow it (60mins = 1 hours)
+    INTERVAL = 60
+    icu_events_dict = list()
+    for minutes_ago in range(minutes_before_icu,
+                             minutes_before_icu + los_icu_minutes, INTERVAL):
+        icu_events_dict.append({
+            'hadm_id': admission_id,
+            'minutes_ago': minutes_ago,
+            'conceptid': LOS_ICU_FEATURE[1],
+            'value': int((minutes_ago - minutes_before_icu) * 1.0 / INTERVAL)
+        })
+    icu_events_dict.append({
+        'hadm_id': admission_id,
+        'minutes_ago': minutes_before_icu + los_icu_minutes,
+        'conceptid': LOS_ICU_FEATURE[1],
+        'value': int(los_icu_minutes * 1.0 / INTERVAL)
+    })
+    return pd.DataFrame(icu_events_dict)
+
+
+def create_cvd_los_dataset(export_dir, concept_dir='../data'):
+    """
+    Split length of stay duration to many sub-groups, called `los_group`
+    And assign `los_group` to each heart admission
+    Split heart admission to train & test (70/30)
+
+    Args:
+        export_dir (TYPE): Description
+        processes (TYPE): Description
+        concept_dir (str, optional): Description
+    """
+    heart_df = get_first_heart_admissions()
+    los_values = heart_df['los_hospital']
+    los_values = [int(v) for v in los_values]
+
+    min_percentile = 5
+    max_percentile = 95
+    step = 10
+    los_groups = list()
+    for p in range(min_percentile, max_percentile + step, step):
+        p_value = math.floor(np.percentile(los_values, p) * 10) / 10
+        logger.info('%s-percentile: %s', p, p_value)
+        los_groups.append(p_value)
+
+    # remove duplicates and sort lists ascending
+    los_groups = sorted(list(set(los_groups)))
+
+    # insert definition of los group to jvn_los_groups (database)
+    # and update group_index for all heart admissions
+    # heart_df['los_group'] = pd.Series([-1] * heart_df.shape[0], index=heart_df.index)
+    data = heart_df[['hadm_id', 'los_hospital']].to_dict('records')
+    for i in range(len(los_groups) + 1):
+        group_id = i + 1
+        lower_bound = -1
+        upper_bound = -1
+        if i == 0:
+            lower_bound = -1
+            upper_bound = los_groups[i]
+
+        elif i == len(los_groups):
+            # assume that patients will not stay in hospital more than 10 years
+            lower_bound = los_groups[i - 1]
+            upper_bound = 365 * 10
+        else:
+            lower_bound = los_groups[i - 1]
+            upper_bound = los_groups[i]
+
+        insert_los_group(group_id, lower_bound, upper_bound)
+        for item in data:
+            if item['los_hospital'] >= lower_bound and item['los_hospital'] < upper_bound:
+                item['los_group'] = group_id
+
+    # split to train/test set
+    random.seed(1)
+    random.shuffle(data)
+    split_idx = int(len(data) * 0.7)
+    train_df = pd.DataFrame(data[: split_idx])
+    train_df.to_csv(os.path.join(export_dir, 'cvd_los_data.train'),
+                    index=False)
+    logger.info('Number of training samples: %s', train_df.shape[0])
+
+    test_df = pd.DataFrame(data[split_idx:])
+    test_df.to_csv(os.path.join(export_dir, 'cvd_los_data.test'),
+                   index=False)
+    logger.info('Number of testing samples: %s', test_df.shape[0])
+

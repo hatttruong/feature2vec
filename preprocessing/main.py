@@ -73,5 +73,4 @@ if __name__ == '__main__':
         restore_merge_data()
     elif args.action == 'create_los_dataset':
         create_cvd_los_dataset(export_dir=args.export_dir,
-                               processes=args.process,
                                concept_dir=args.concept_dir)

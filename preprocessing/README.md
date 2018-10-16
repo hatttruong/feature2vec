@@ -192,7 +192,7 @@ $ python3 main.py update_chartevents -cd ../data
 Here is command to generate:
 ```
 $ cd preprocessing
-$ python3 main.py create_train_dataset -cd ../data -p 12 -ed ../data/temp
+$ python3 main.py create_train_dataset -cd ../data -p 16 -ed ../data/admissions
 ```
 
 * `data_train_chartevents_*.csv` structure: sorted by hadm_id, minutes_ago and **without** header
@@ -222,3 +222,8 @@ Total Entries: 177,804,820
 
 ## 2.3 Prepare data to predict LOS using LSTM:
 
+Here is command to generate:
+```
+$ cd preprocessing
+$ python3 main.py create_los_dataset -cd ../data -p 16 -ed ../data/los
+```
