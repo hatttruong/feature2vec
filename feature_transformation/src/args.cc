@@ -21,9 +21,9 @@ Args::Args() {
   dim = 100;
   ws = 60;            // context size of non-static event in minutes
   multiEvents =  30;  // average number of events happening at the same time
-  maxStatic = 4;      // max number of static events
+  maxStatic = 5;      // max number of static events
   ps = 0.5;           // context size of static event in faction of 1
-  epoch = 5;
+  epoch = 1;
   minCount = 5;
   neg = 5;
   loss = loss_name::ns;

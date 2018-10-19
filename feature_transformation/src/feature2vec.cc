@@ -155,26 +155,122 @@ void Feature2Vec::printInfo(real progress, real loss, std::ostream& log_stream) 
 
 // events: vector<event_entry> which order by minutes_ago
 // Model::update(const std::vector<int32_t>& input, int32_t target, real lr)
-// In CBOW model, input is bounded events, target is the current event
-// TODO: mutiply boundary with a constant because there are many events happen
+// In CBOW model: input is bounded events, target is the current event
+// Modification:
+// (1) mutiply boundary with a constant because there are many events happen
 // at the same time
+// (2) seperate updating model between static and non-static events
 void Feature2Vec::cbow(Model& model, real lr,
                        const std::vector<event_entry>& events) {
+  std::uniform_int_distribution<> uniform(1, args_->ws * args_->multiEvents);
+
+  // specify number of static features
+  int32_t nb_static = 0;
+  for (int32_t i = args_->maxStatic - 1; i >= 0; i--) {
+    if (i < events.size() && events[i].minutes_ago == -1) {
+      nb_static = i + 1;
+      break;
+    }
+  }
+
+  std::uniform_int_distribution<> uniform_st(0, nb_static - 1);
+  std::uniform_int_distribution<> uniform_nst(nb_static, events.size() - 1);
+
   // bow: contains index of events (themself and their segments, separately)
   std::vector<int32_t> bow;
-  std::uniform_int_distribution<> uniform(1, args_->ws);
-  int32_t boundary;
-  for (int32_t i = 0; i < events.size(); i++) {
-    boundary = uniform(model.rng);
+  int32_t c_idx;
+
+  // [1] update static features with non-static feature context
+  for (int32_t i = 0; i < nb_static; i++) {
     bow.clear();
-    for (int32_t c = -boundary; c <= boundary; c++) {
-      if (c != 0 && i + c >= 0 && i + c < events.size()) {
-        const std::vector<int32_t>& nsegments = dict_->getSegments(events[i + c].idx);
-        bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+    try {
+      // context is a half number of non-static features
+      for (int32_t j = 0; j < (events.size() - nb_static) * args_->ps; j++) {
+        c_idx = uniform_nst(model.rng);
+        if (c_idx >= 0 && c_idx < events.size()) {
+          const std::vector<int32_t>& nsegments = dict_->getSegments(events[c_idx].idx);
+          bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+        }
       }
+      model.update(bow, events[i].idx, lr);
+
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR cbow(): update static features with non-static feature context.\nData: idx=" + std::to_string(events[i].idx)
+        + ", minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + "\nWhat(): " + e.what());
     }
+  }
+
+
+  // [2] update non-static features with static and other non-static features in boundary
+  int32_t boundary;
+  int32_t below_mins_ago;
+  int32_t above_mins_ago;
+  for (int32_t i = nb_static; i < events.size(); i++) {
+    bow.clear();
+
+    // STATIC CONTEXT: a half number of static features
+    try {
+      for (int32_t j = 0; j < nb_static * args_->ps; j++) {
+        c_idx = uniform_nst(model.rng);
+        if (c_idx >= 0 && c_idx < events.size()) {
+          const std::vector<int32_t>& nsegments = dict_->getSegments(events[c_idx].idx);
+          bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+        }
+      }
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR cbow(): get static context for non-feature (idx="
+        + std::to_string(events[i].idx)
+        + ", minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + ").\nWhat(): "
+        + e.what());
+    }
+
+    // NONE-STATIC context
+    try {
+      below_mins_ago = events[i].minutes_ago - args_->ws;
+      above_mins_ago = events[i].minutes_ago + args_->ws;
+      boundary = uniform(model.rng);
+      for (int32_t c = - boundary; c <= + boundary; c++) {
+        if (c != 0 && i + c >= nb_static && i + c < events.size()) {
+
+          if (events[i + c].minutes_ago >= below_mins_ago
+              && events[i + c].minutes_ago <= above_mins_ago) {
+            const std::vector<int32_t>& nsegments = dict_->getSegments(events[i + c].idx);
+            bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+          }
+        }
+      }
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR cbow(): get non-static context for static feature (idx="
+        + std::to_string(events[i].idx)
+        + ", minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + ")\nWhat(): " + e.what());
+    }
+
+    // UPDATE model
     model.update(bow, events[i].idx, lr);
   }
+
+  // Original
+  // // bow: contains index of events (themself and their segments, separately)
+  // std::vector<int32_t> bow;
+  // std::uniform_int_distribution<> uniform(1, args_->ws);
+  // int32_t boundary;
+  // for (int32_t i = 0; i < events.size(); i++) {
+  //   boundary = uniform(model.rng);
+  //   bow.clear();
+  //   for (int32_t c = -boundary; c <= boundary; c++) {
+  //     if (c != 0 && i + c >= 0 && i + c < events.size()) {
+  //       const std::vector<int32_t>& nsegments = dict_->getSegments(events[i + c].idx);
+  //       bow.insert(bow.end(), nsegments.cbegin(), nsegments.cend());
+  //     }
+  //   }
+  //   model.update(bow, events[i].idx, lr);
+  // }
 }
 
 
@@ -219,7 +315,8 @@ void Feature2Vec::skipgram(Model& model, real lr,
       }
     } catch (std::exception& e) {
       utils::log(
-        "ERROR skipgram(): update static features with non-static feature context.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        "ERROR skipgram(): update static features with non-static context. \nData: events[i].idx="
+        + std::to_string(events[i].idx)
         + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
         + "\nWhat(): " + e.what());
     }
@@ -243,7 +340,8 @@ void Feature2Vec::skipgram(Model& model, real lr,
       }
     } catch (std::exception& e) {
       utils::log(
-        "ERROR skipgram(): update non-static features with static.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        "ERROR skipgram(): update non-static features with static.\nData: events[i].idx="
+        + std::to_string(events[i].idx)
         + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
         + "\nWhat(): " + e.what());
     }
@@ -265,7 +363,8 @@ void Feature2Vec::skipgram(Model& model, real lr,
       }
     } catch (std::exception& e) {
       utils::log(
-        "ERROR skipgram(): update non-static features with other non-static features.\nData: events[i].idx=" + std::to_string(events[i].idx)
+        "ERROR skipgram(): update non-static features with other non-static features.\nData: events[i].idx="
+        + std::to_string(events[i].idx)
         + ", events[i].minutes_ago=" + std::to_string(events[i].minutes_ago)
         + "\nWhat(): " + e.what());
     }
