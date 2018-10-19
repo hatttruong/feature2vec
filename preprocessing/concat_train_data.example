@@ -37,6 +37,9 @@ echo "Total lines of concat result is $concat_file_lines";
 echo "create a sample (0.5M) from $CONCAT_FILE"
 head -500000 $CONCAT_FILE > "$CONCAT_FILE.0.5M"
 
-echo "zip files to copy to server"
+echo "tar files to copy to server"
 cd $DATA_DIR
-zip -r $FILE_NAME.zip $FILE_NAME.csv
+# zip -r $FILE_NAME.zip $FILE_NAME.csv
+tar -cJf $FILE_NAME.tar.xz $$FILE_NAME.csv
+split -b 200m $FILE_NAME.tar.xz "$FILE_NAME.tar.xz.part."
+

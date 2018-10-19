@@ -121,7 +121,7 @@ I have 2 different servers: (1) Server_1: 16G RAM, 8 cores and (2) Server_2: 32G
 $ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/data_train_chartevents_raw.csv.0.5M -output ../models/cbow_ce_nm_ws_60_dim_100_epoch_1_test -ws 60 -dim 100 -epoch 1 -verbose 2
 
 # CASE 4
-$ sudo ./feature2vec.exe cbow -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_raw.csv -output /media/tuanta/USB/hattt/models/cbow_ce_nm_ws_60_dim_100_epoch_1 -ws 60 -dim 100 -epoch 1 -verbose 2
+$ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_raw.csv -output /media/tuanta/USB/hattt/models/cbow_ce_nm_ws_60_dim_100_epoch_1 -ws 60 -dim 100 -epoch 1 -verbose 2
 
 # CASE 5
 sudo ./feature2vec.exe cbow -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_raw.csv -output /media/tuanta/USB/hattt/models/cbow_ce_nm_ws_180_dim_100_epoch_1 -ws 180 -dim 100 -epoch 1 -verbose 2

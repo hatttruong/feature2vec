@@ -221,7 +221,7 @@ hadm_id, minutes_ago, conceptid, value
 * run `concat_train_data.sh`:
 
 ```
-Total Entries: 177,804,820
+Total Entries: 228,984,364
 ```
 
 ## 2.3 Prepare data to predict LOS using LSTM:
