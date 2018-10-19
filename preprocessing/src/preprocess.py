@@ -552,6 +552,13 @@ def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
     #                        if isfile(join(export_dir, f))]
     logger.info('DONE %s admissions', len(exported_admissions))
 
+    # load admission without events
+    adm_without_events = pd.read_csv('../backup/admissions_without_events.csv',
+                                     header=None,
+                                     names=['adm_id'])['adm_id'].tolist()
+    logger.info('%s admissions without events', len(adm_without_events))
+    exported_admissions = exported_admissions + adm_without_events
+
     m = multiprocessing.Manager()
     q_log = m.Queue()
 
@@ -656,6 +663,10 @@ def create_admission_train(admission_id, args, export_dir, q_log):
     # ignore any admissions which have no chartevents
     if df_events.shape[0] == 0:
         logger.warn('admission_id=%s has no valid chartevents', admission_id)
+
+        with open('../backup/admissions_without_events.csv', 'a') as f:
+            f.write('%s\n' % admission_id)
+        q_log.put((admission_id, 0, 0))
         return
 
     d = (datetime.now() - start).total_seconds()
@@ -666,14 +677,19 @@ def create_admission_train(admission_id, args, export_dir, q_log):
     Add LOS in ICU features: generate a multiple events per hour from `intime`
     to `outtime`
     '''
-    los_icu_events_df = generate_icu_events(admission_id,
-                                            args['minutes_before_icu'],
-                                            args['los_icu_m'])
-    logger.debug('los_icu_events_df.shape = %s', los_icu_events_df.shape)
-    df_events = df_events.append(los_icu_events_df, ignore_index=True)
-    logger.debug(
-        'number of events (chartevents & los_icu features): %s',
-        df_events.shape[0])
+    if args['los_icu_m'] is None or args['los_icu_m'] <=0 or args['minutes_before_icu'] is None:
+        logger.info('admission_id=%s did not stay in ICU', admission_id)
+    else:
+        # assert args['minutes_before_icu'] >= 0 # , 'minutes_before_icu ' + args['minutes_before_icu']
+        # assert args['los_icu_m'] >= 60  # , 'los_icu_m ' + args['los_icu_m']
+        los_icu_events_df = generate_icu_events(admission_id,
+                                                args['minutes_before_icu'],
+                                                args['los_icu_m'])
+        logger.debug('los_icu_events_df.shape = %s', los_icu_events_df.shape)
+        df_events = df_events.append(los_icu_events_df, ignore_index=True)
+        logger.debug(
+            'number of events (chartevents & los_icu features): %s',
+            df_events.shape[0])
 
     '''
     Add static features

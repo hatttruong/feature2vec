@@ -193,7 +193,7 @@ $ python3 main.py update_chartevents -cd ../data
 Here is command to generate:
 ```
 $ cd preprocessing
-$ python3 main.py create_train_dataset -cd ../data -p 16 -ed ../data/admissions
+$ python3 main.py create_train_dataset -cd ../data -p 8 -ed ../data/admissions
 ```
 
 * `data_train_chartevents_*.csv` structure: sorted by hadm_id, minutes_ago and **without** header
@@ -204,15 +204,18 @@ hadm_id, minutes_ago, conceptid, value
 ...
 ```
 
-* It takes **2-5** seconds in average for exporting data of 50 admissions and about **30** minutes to export all data.
+* It takes about **30** minutes to export all data.
 
 ```
-2018-09-12 11:01:52,814 : INFO : DONE 34134/34134 admissions
-2018-09-12 11:01:52,820 : INFO : TOTAL DURATION: 1853.657842 seconds
-2018-09-12 11:01:52,829 : INFO : seconds/admissions: 0.05446488341070694 seconds
-2018-09-12 11:01:56,680 : INFO : mean query times: 0.5911701626314861
-2018-09-12 11:01:56,682 : INFO : mean update times: 0.0035191389786683905
-2018-09-12 11:01:56,736 : INFO : run "concat_train_data.sh" to concat all files
+2018-10-19 15:56:43,694 : INFO : Total admissions: 43613
+2018-10-19 15:56:43,695 : INFO : DONE 0 admissions
+2018-10-19 15:56:43,710 : INFO : 131 admissions without events
+2018-10-19 15:56:51,141 : INFO : Remaining: 43482 admissions
+2018-10-19 15:56:51,166 : INFO : START POOL at 2018-10-19 15:56:51.165898
+...
+2018-10-19 16:30:36,369 : INFO : DONE 43482/43482 admissions
+2018-10-19 16:30:36,370 : INFO : TOTAL DURATION: 2025.204592 seconds
+
 ```
 
 * run `concat_train_data.sh`:
