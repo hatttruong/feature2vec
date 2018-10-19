@@ -73,7 +73,7 @@ def get_events_by_admission(admission_id, event_types=['chartevents']):
                     WHERE hadm_id=%s AND jvn_value IS NOT NULL \
                     ORDER BY charttime ASC) \
                 SELECT hadm_id, (DATE_PART('day', \
-                    C.charttime::timestamp - M.min_charttime::timestamp) * 24 + \
+                    C.charttime::timestamp - M.min_charttime::timestamp) * 24 * 60 + \
                     DATE_PART('hour', \
                     C.charttime::timestamp - M.min_charttime::timestamp) * 60 + \
                     DATE_PART('minute', \

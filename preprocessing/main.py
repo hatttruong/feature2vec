@@ -57,6 +57,9 @@ if __name__ == '__main__':
         create_train_feature_dataset(export_dir=args.export_dir,
                                      processes=args.process,
                                      concept_dir=args.concept_dir)
+    elif args.action == 'create_los_dataset':
+        create_cvd_los_dataset(export_dir=args.export_dir,
+                               concept_dir=args.concept_dir)
     elif args.action == 'crawl_webpages':
         # TODO: parameters
         export_dir = '../data/webpages'
@@ -71,6 +74,4 @@ if __name__ == '__main__':
         backup_merge_data()
     elif args.action == 'restore':
         restore_merge_data()
-    elif args.action == 'create_los_dataset':
-        create_cvd_los_dataset(export_dir=args.export_dir,
-                               concept_dir=args.concept_dir)
+

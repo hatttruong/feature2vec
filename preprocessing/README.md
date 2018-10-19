@@ -173,7 +173,7 @@ $ python3 main.py define_concepts -cd ../data -p 16
 ### 2.2.2 Update `chartevents` table:
 
 * Update value of chartevents based on `concept_definition.json`: after exporting `concept_definition.json`, value of `chartevents` table will be updated (the new values are stored in `jvn_value` column).
-* It takes about **xx hrs** to done.
+* It takes about **12 hrs** to done.
 
 ```
 $ cd preprocessing
@@ -181,10 +181,11 @@ $ python3 main.py update_chartevents -cd ../data
 
 # START update value of chartevents based on "concept_definition.json"
 # Total concepts (load from json): 6382
-# Done: 50/6380 concepts, avg duration: 1.01 seconds/concept
-# Done: 100/6380 concepts, avg duration: 2.75 seconds/concept
+# Done: 50/6382 concepts, avg duration: 1.01 seconds/concept
+# Done: 100/6382 concepts, avg duration: 2.75 seconds/concept
 ...
-# DURATION (update values): 50889 seconds ~ 14hrs
+# Done: 6350/6382 concepts, avg duration: 6.66 seconds/concept
+# DURATION (update values): 42414 seconds ~ 12hrs
 ```
 
 ### 2.2.3 Generate `data_train_chartevents_*.csv`:
@@ -225,5 +226,6 @@ Total Entries: 177,804,820
 Here is command to generate:
 ```
 $ cd preprocessing
-$ python3 main.py create_los_dataset -cd ../data -p 16 -ed ../data/los
+$ python3 main.py create_los_dataset -cd ../data -ed ../data/los
 ```
+It does NOT take too long to complish.

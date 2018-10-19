@@ -1,7 +1,7 @@
 #!/bin/bash
 DATA_DIR=../data
-TRAIN_DIR=$DATA_DIR/train
-FILE_NAME=data_train_chartevents_not_merge
+TRAIN_DIR=$DATA_DIR/admissions
+FILE_NAME=data_train_chartevents_raw
 CONCAT_FILE=$DATA_DIR/$FILE_NAME.csv
 
 # CASE 1: csv files contain header

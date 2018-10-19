@@ -539,9 +539,17 @@ def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
 
     # split by . to get name without extension
     # split by _ to get the last part from name (admission id)
-    exported_admissions = [int(basename(f).split('.')[0].split('_')[-1])
-                           for f in listdir(export_dir)
-                           if isfile(join(export_dir, f))]
+    exported_admissions = []
+    for f in listdir(export_dir):
+        if isfile(join(export_dir, f)):
+            try:
+                exported_admissions.append(
+                    int(basename(f).split('.')[0].split('_')[-1]))
+            except Exception as e:
+                pass
+    # [int(basename(f).split('.')[0].split('_')[-1])
+    #                        for f in listdir(export_dir)
+    #                        if isfile(join(export_dir, f))]
     logger.info('DONE %s admissions', len(exported_admissions))
 
     m = multiprocessing.Manager()
@@ -579,8 +587,8 @@ def create_train_feature_dataset(export_dir, processes, concept_dir='../data'):
             export_dir,
             q_log))
         # DEBUG
-        if len(list_args) == 10:
-            break
+        # if len(list_args) == 5:
+        #     break
         # END DEBUG
 
     logger.info('Remaining: %s admissions', len(list_args))
@@ -804,4 +812,3 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
     test_df.to_csv(os.path.join(export_dir, 'cvd_los_data.test'),
                    index=False)
     logger.info('Number of testing samples: %s', test_df.shape[0])
-
