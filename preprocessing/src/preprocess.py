@@ -8,6 +8,7 @@ preprocessor contains functions to train feature to continuous vectors:
 
 """
 import sys
+from shutil import copyfile
 import os
 from os import listdir
 from os.path import isfile, join, basename
@@ -775,6 +776,15 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
         concept_dir (str, optional): Description
     """
     heart_df = get_first_heart_admissions()
+
+    # # copy related admission to seperated folder
+    # src_dir = '../data/admissions/'
+    # dest_dir = '../data/heart_admissions/'
+    # for index, row in heart_df.iterrows():
+    #     admission_id = row['hadm_id']
+    #     file_name = 'data_train_%s.csv' % admission_id
+    #     copyfile(src_dir + file_name, dest_dir + file_name)
+
     los_values = heart_df['los_hospital']
     los_values = [int(v) for v in los_values]
 
