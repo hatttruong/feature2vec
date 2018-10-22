@@ -12,6 +12,9 @@ import torch.optim as optim
 import data_loader
 import os
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 torch.set_num_threads(8)
 torch.manual_seed(1)
@@ -25,7 +28,7 @@ class LstmLosClassifier(nn.Module):
         super(LstmLosClassifier, self).__init__()
         self.hidden_dim = hidden_dim
         self.feature_embeddings = nn.Embedding(feature_size, embedding_dim)
-        if weights_matrix not None:
+        if weights_matrix is not None:
             self.feature_embeddings.load_state_dict({'weight': weights_matrix})
             if non_trainable:
                 self.feature_embeddings.weight.requires_grad = False
@@ -40,9 +43,9 @@ class LstmLosClassifier(nn.Module):
         return (autograd.Variable(torch.zeros(1, 1, self.hidden_dim)),
                 autograd.Variable(torch.zeros(1, 1, self.hidden_dim)))
 
-    def forward(self, sentence):
-        embeds = self.feature_embeddings(sentence)
-        x = embeds.view(len(sentence), 1, -1)
+    def forward(self, events):
+        embeds = self.feature_embeddings(events)
+        x = embeds.view(len(events), 1, -1)
         lstm_out, self.hidden = self.lstm(x, self.hidden)
         y = self.hidden2label(lstm_out[-1])
         log_probs = F.log_softmax(y, dim=1)
@@ -59,33 +62,40 @@ def get_accuracy(truth, pred):
 
 
 def train():
-    train_data, test_data, features, label_to_idx, weights_matrix = data_loader.load_los_data()
+    result = data_loader.load_los_data()
+    train_data = result['train_data']
+    test_data = result['test_data']
+    feature_to_idx = result['feature_to_idx']
+    label_to_idx = result['label_to_idx']
+    weights_matrix = result['weights_matrix']
+
     EMBEDDING_DIM = 100
     HIDDEN_DIM = 50
     EPOCH = 5
     best_test_acc = 0.0
     model = LstmLosClassifier(embedding_dim=EMBEDDING_DIM,
                               hidden_dim=HIDDEN_DIM,
-                              feature_size=len(features),
+                              feature_size=len(feature_to_idx),
                               label_size=len(label_to_idx),
-                              weights_matrix=weights_matrix)
+                              weights_matrix=weights_matrix,
+                              non_trainable=True)
     loss_function = nn.NLLLoss()
     # optimizer = optim.Adam(model.parameters(), lr=1e-3)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2)
     no_up = 0
     for i in range(EPOCH):
         random.shuffle(train_data)
-        print('epoch: %d start!' % (i + 1))
+        logger.info('Epoch: %d start!', i + 1)
         train_epoch(model, train_data, loss_function,
                     optimizer, feature_to_idx, label_to_idx, i + 1)
-        print('now best dev acc:', best_test_acc)
+        logger.info('now best dev acc: %s', best_test_acc)
         test_acc = evaluate(model, test_data, loss_function,
                             feature_to_idx, label_to_idx, 'test')
         if test_acc > best_test_acc:
             best_test_acc = test_acc
             os.system('rm ../models/los_best_model_acc_*.model')
-            print('New Best Dev!!!')
-            torch.save(model.state_dict(), '../models/mr_best_model_acc_' +
+            logger.info('New Best Dev!!!')
+            torch.save(model.state_dict(), '../models/los_best_model_acc_' +
                        str(int(test_acc * 10000)) + '.model')
             no_up = 0
         else:
@@ -116,7 +126,7 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx, name='dev
         avg_loss += loss.item()
     avg_loss /= len(data)
     acc = get_accuracy(truth_res, pred_res)
-    print(name + ' avg_loss:%g train acc:%g' % (avg_loss, acc))
+    logger.info('%a avg_loss:%g train acc:%g', name, avg_loss, acc)
     return acc
 
 
@@ -130,7 +140,7 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
     pred_res = []
     batch_sent = []
 
-    for item in data:
+    for item in train_data:
         events = item['events']
         label = item['los_group']
         truth_res.append(label_to_idx[label])
@@ -146,14 +156,18 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
         avg_loss += loss.item()
         count += 1
         if count % 500 == 0:
-            print('epoch: %d iterations: %d loss :%g' %
-                  (epoch_th, count, loss.item()))
+            logger.info('Epoch: %d \titerations: %d \tloss: %g',
+                        epoch_th, count, loss.item())
 
         loss.backward()
         optimizer.step()
     avg_loss /= len(train_data)
-    print('epoch: %d done! \n train avg_loss:%g , acc:%g' %
-          (i, avg_loss, get_accuracy(truth_res, pred_res)))
+    logger.info('Epoch: %d done! train avg_loss:%g , acc:%g',
+                epoch_th, avg_loss, get_accuracy(truth_res, pred_res))
 
 
+logging.basicConfig(
+    # filename='log.log',
+    format='%(asctime)s : %(levelname)s : %(message)s',
+    level=logging.INFO)
 train()
