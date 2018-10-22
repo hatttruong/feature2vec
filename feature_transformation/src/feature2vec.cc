@@ -196,7 +196,7 @@ void Feature2Vec::cbow(Model& model, real lr,
 
     } catch (std::exception& e) {
       utils::log(
-        "ERROR cbow(): update static features with non-static feature context.\nData: idx=" + std::to_string(events[i].idx)
+        "ERROR cbow(): update static features.\nData: idx=" + std::to_string(events[i].idx)
         + ", minutes_ago=" + std::to_string(events[i].minutes_ago)
         + "\nWhat(): " + e.what());
     }
@@ -252,7 +252,15 @@ void Feature2Vec::cbow(Model& model, real lr,
     }
 
     // UPDATE model
-    model.update(bow, events[i].idx, lr);
+    try {
+      model.update(bow, events[i].idx, lr);
+    } catch (std::exception& e) {
+      utils::log(
+        "ERROR cbow(): update non-static features (idx="
+        + std::to_string(events[i].idx)
+        + ", minutes_ago=" + std::to_string(events[i].minutes_ago)
+        + ")\nWhat(): " + e.what());
+    }
   }
 
   // Original

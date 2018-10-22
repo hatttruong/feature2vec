@@ -83,7 +83,7 @@ Here is the result:
 |   1 | 391 |               7 |              15 |              30 |
 
 
-* Using Skip-MF
+##### 2.1 Using Skip-MF
 
 ```
 $ ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input ../data/data_train_chartevents_raw.csv -output ../models/skipgram_ce_nm -epoch 5 -verbose 2
@@ -109,16 +109,16 @@ sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /me
 sudo ./feature2vec.exe skipgram -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_raw.csv -output /media/tuanta/USB/hattt/models/skipgram_ce_nm_ws_360_dim_100_epoch_1 -ws 360 -dim 100 -epoch 1 -verbose 2
 
 ```
-I have 2 different servers: (1) Server_1: 16G RAM, 8 cores and (2) Server_2: 32G RAM, 16 cores. It took **10 mins** to finish `readFromFile()` on Server_1 and **66 mins** on Server_2 (?!?)
+I have 2 different servers: (1) Server_1: 16G RAM, 8 cores and (2) Server_2: 32G RAM, 16 cores. It took **15 mins** to finish `readFromFile()` on Server_1 and **66 mins** on Server_2.
 
-* CASE 1 `-ws 60 -dim 100 -epoch 1 -thread 12`: **~ hours**
-* CASE 2 `-ws 180 -dim 200 -epoch 1 -thread 12`: **~ hours**
-* CASE 3 `-ws 360 -dim 300 -epoch 1 -thread 12`: **~ hours**
+* CASE 1 `-ws 60 -dim 100 -epoch 1 -thread 12`: **4.25 hours** (2018-10-19.22:56:40 - 2018-10-20.03:14:48)
+* CASE 2 `-ws 180 -dim 100 -epoch 1 -thread 12`: **~10 hours** (2018-10-20.08:19:07 - 2018-10-20.17:57:00)
+* CASE 3 `-ws 360 -dim 100 -epoch 1 -thread 12`: **~15 hours** (2018-10-20.23:04:09 - )
 
-* Using CBOWMF
+##### 2.2 Using CBOMF
 
 ```
-$ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/data_train_chartevents_raw.csv.0.5M -output ../models/cbow_ce_nm_ws_60_dim_100_epoch_1_test -ws 60 -dim 100 -epoch 1 -verbose 2
+$ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input ../data/data_train_chartevents_raw.csv.15percent -output ../models/cbow_ce_nm_ws_60_dim_100_epoch_1_test -ws 60 -dim 100 -epoch 1 -verbose 2
 
 # CASE 4
 $ ./feature2vec.exe cbow -dict ../data/concept_definition.json -input /media/tuanta/USB/hattt/data/data_train_chartevents_raw.csv -output /media/tuanta/USB/hattt/models/cbow_ce_nm_ws_60_dim_100_epoch_1 -ws 60 -dim 100 -epoch 1 -verbose 2
