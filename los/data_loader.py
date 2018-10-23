@@ -13,13 +13,14 @@ import torch.utils.data as Data
 import pandas as pd
 import logging
 import json
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 SEED = 1
 DATA_DIR = '../data'
-FILE_TRAIN = DATA_DIR + '/los/cvd_los_data.train'
-FILE_TEST = DATA_DIR + '/los/cvd_los_data.test'
+DATA_FILE_PATH = DATA_DIR + '/los/cvd_los_data.csv'
+LOS_GROUPS_PATH = DATA_DIR + '/los/los_groups.csv'
 CONCEPT_DEF_PATH = DATA_DIR + '/concept_definition.json'
 
 
@@ -81,31 +82,79 @@ def load_concept_definition():
     return concepts
 
 
-def load_pretrained_feature_vectors(pretrained_path):
+def load_pretrained_vectors(pretrained_path, concept_definitions):
     """
     TODO
 
     Args:
         pretrained_path (TYPE): Description
     """
-    with open(pretrained_path, 'r') as f:
-        for line in f.read():
-            # TODO
-            pass
+    logger.info('start load_pretrained_vectors')
+    vector_size = 0
+    id_to_vectors = dict()
+    with open(pretrained_path) as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+
+    for index, line in enumerate(content):
+        if index == 0:
+            items = line.split()
+            assert len(items) == 2, 'line=%s has incorrect format' % index
+            vector_size = int(items[1])
+            is_first_line = False
+        else:
+            items = line.split(',')
+            assert len(items) == 3, 'line=%s has incorrect format' % index
+            itemid = int(items[0])
+            value = int(items[1])
+            if itemid in concept_definitions:
+                if value in concept_definitions[itemid]['data']:
+                    feature_id = concept_definitions[itemid]['data'][value]
+                    vector = np.asarray([float(i) for i in items[2].split()])
+                    id_to_vectors[feature_id] = np.asarray(vector)
+        sys.stdout.write('\r')
+        sys.stdout.write('load pretrained for %s features...' % (index + 1))
+        sys.stdout.flush()
+    sys.stdout.write('\r')
+
+    logger.info('done load_pretrained_vectors')
+
+    return id_to_vectors, vector_size
 
 
-def load_events(admission_id, concept_definitions, within_hours=12):
+def get_los_group_idx(los_value, los_group):
+    los_group = sorted(los_group, reverse=True)
+    group_idx = len(los_group)
+    for x in los_group:
+        if los_value >= x:
+            break
+        else:
+            group_idx -= 1
+    return group_idx
+
+
+def create_train_data(admission_id, los_value, los_group, concept_definitions):
     """
     Return a list of event index in weights_matrix
 
     Args:
         admission_id (TYPE): Description
+        los_value (float): days in hospital
+        los_group (TYPE): splitters in descending order
+        concept_definitions (TYPE): Description
+
+    Returns:
+        LIST: list of dictionary
     """
     events_df = pd.read_csv(
-        DATA_DIR + '/admissions/data_train_%s.csv' % admission_id,
+        DATA_DIR + '/admissions/data_train_%s.csv' % int(admission_id),
         header=None,
         names=['admission_id', 'minutes_ago', 'itemid', 'value'])
+    samples = list()
     event_ids = list()
+    step = 6
+    upper_bound = step
+    within_hours = 48
     for index, row in events_df.iterrows():
         itemid = row['itemid']
         value = row['value']
@@ -113,58 +162,113 @@ def load_events(admission_id, concept_definitions, within_hours=12):
         if minutes_ago > within_hours * 60:
             break
 
+        # create a sample for every next 6 hours
+        if minutes_ago > upper_bound * 60:
+            samples.append(
+                {'admission_id': admission_id,
+                 'event_range': upper_bound,
+                 'los_group': get_los_group_idx(los_value - upper_bound * 1.0 / 24, los_group),
+                 'events': event_ids.copy()
+                 })
+            upper_bound += step
+
         if itemid in concept_definitions:
             if value in concept_definitions[itemid]['data']:
                 event_ids.append(concept_definitions[itemid]['data'][value])
-    return event_ids
+    return samples, event_ids
 
 
-def build_weights_matrix(feature_to_idx, emb_dim):
+def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors):
+    """
+    build weights matrix based on pretrained vectors
+
+    Args:
+        feature_to_idx (TYPE): Description
+        emb_dim (TYPE): Description
+        id_to_vectors (TYPE): Description
+
+    Returns:
+        TYPE: Description
+    """
+    logger.info('start build_weights_matrix, emb_dim=%s', emb_dim)
     matrix_len = len(feature_to_idx)
     weights_matrix = np.zeros((matrix_len, emb_dim))
     feature_found = 0
 
+    done = 0
     for feature_id in feature_to_idx.keys():
         try:
             i = feature_to_idx[feature_id]
-            # TODO: get feature vector
-            weights_matrix[i] = glove[word]
+            weights_matrix[i] = id_to_vectors[feature_id]
             feature_found += 1
         except KeyError:
             weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
+            logger.debug(
+                'cannot found feature_id=%s in pretrained', feature_id)
+
+        done += 1
+        sys.stdout.write('\r')
+        sys.stdout.write('build weights matrix for %s features...' % done)
+        sys.stdout.flush()
+    sys.stdout.write('\r')
+
+    logger.info('found %s/%s features in pretrained',
+                feature_found, len(feature_to_idx))
     return weights_matrix
 
 
-def load_los_data():
+def load_los_groups():
+    df = pd.read_csv(LOS_GROUPS_PATH)
+    los_groups = df.to_dict('records')
+    for index, g in enumerate(los_groups):
+        g['values'] = [int(v) for v in g['values'].split(',')]
+    return los_groups
+
+
+def load_los_data(los_group, pretrained_path=None):
     """
     train/test data: is a list of dictionary
-        {'hadm_id': 194126, 'los_group': 9,
+        {'hadm_id': 194126, 'los_group': 9, 'event_range': 6,
         'events': [1, 8, 120, 134, 144, 100529, 578098, ...]}
 
+    Args:
+        los_group (TYPE): splitters in decensing order
+        pretrained_path (None, optional): Description
+
     Returns:
-        TYPE: train_data, test_data, label_to_idx, weights_matrix
+        DICT: train_data, test_data, feature_to_idx, label_to_idx, weights_matrix
+
     """
-    logger.info('loading LOS data from %s and %s', FILE_TRAIN, FILE_TEST)
+    logger.info('loading LOS data from %s', DATA_FILE_PATH)
 
-    train_df = pd.read_csv(FILE_TRAIN)
-    test_df = pd.read_csv(FILE_TEST)
+    data_df = pd.read_csv(DATA_FILE_PATH)
+    data_dict = data_df[['hadm_id', 'los_hospital']].to_dict('records')
 
-    train_data = train_df[['hadm_id', 'los_group']].to_dict('records')
-    test_data = test_df[['hadm_id', 'los_group']].to_dict('records')
-    logger.info('train: %s, test: %s', len(train_data), len(test_data))
+    # create train/test admission ids
+    random.seed(SEED)
+    random.shuffle(data_dict)
+    split = int(len(data_dict) * 0.7)
+    train_admission_ids = [x['hadm_id'] for x in data_dict[: split]]
+    test_admission_ids = [x['hadm_id'] for x in data_dict[split:]]
 
-    # load events within 12h for each admission
-    # get index of each event in concept_definitions.json
+    # for each admissions, create samples with different time range
     logger.info('load events for each admission')
     concept_definitions = load_concept_definition()
     features = set()
-    for index, item in enumerate(train_data + test_data):
-        item['events'] = load_events(
-            item['hadm_id'], concept_definitions, within_hours=12)
-        features.update(set(item['events']))
+    samples = []
+    for index, admission in enumerate(data_dict):
+        temp_samples, event_ids = create_train_data(admission['hadm_id'],
+                                                    admission['los_hospital'],
+                                                    los_group,
+                                                    concept_definitions)
+        samples.extend(temp_samples)
+
+        features.update(set(event_ids))
 
         sys.stdout.write('\r')
-        sys.stdout.write('Loading events for %s admissions...' % index)
+        sys.stdout.write(
+            'Create train data for %s admissions, total samples: %s' % (
+                index, len(samples)))
         sys.stdout.flush()
     sys.stdout.write('\r')
 
@@ -176,18 +280,26 @@ def load_los_data():
 
     # define label to index
     label_to_idx = dict()
-    for item in train_data:
-        g = item['los_group']
-        if g not in label_to_idx:
-            label_to_idx[g] = len(label_to_idx)
+    for i in range(len(los_group) + 1):
+        label_to_idx[i] = i
 
     # load vectors for each features
-    weights_matrix = build_weights_matrix(feature_to_idx)
+    weights_matrix = None
+    if pretrained_path is not None:
+        id_to_vectors, vector_size = load_pretrained_vectors(
+            pretrained_path, concept_definitions)
+        weights_matrix = build_weights_matrix(feature_to_idx, vector_size,
+                                              id_to_vectors)
 
     logger.info('feature size: %s, label size: %s',
                 len(feature_to_idx), len(label_to_idx))
-    logger.info('loading data done!')
 
+    # split train/test
+    train_data = [s for s in samples if s['admission_id'] in train_admission_ids]
+    test_data = [s for s in samples if s['admission_id'] in test_admission_ids]
+    logger.info('train: %s, test: %s', len(train_data), len(test_data))
+
+    logger.info('loading data done!')
     return {'train_data': train_data,
             'test_data': test_data,
             'feature_to_idx': feature_to_idx,

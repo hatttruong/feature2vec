@@ -13,6 +13,9 @@ import data_loader
 import os
 import random
 import logging
+from sklearn import metrics
+from os import listdir
+from os.path import isfile, join
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,8 @@ class LstmLosClassifier(nn.Module):
         self.hidden_dim = hidden_dim
         self.feature_embeddings = nn.Embedding(feature_size, embedding_dim)
         if weights_matrix is not None:
-            self.feature_embeddings.load_state_dict({'weight': weights_matrix})
+            self.feature_embeddings.weight.data.copy_(
+                torch.from_numpy(weights_matrix))
             if non_trainable:
                 self.feature_embeddings.weight.requires_grad = False
 
@@ -52,17 +56,45 @@ class LstmLosClassifier(nn.Module):
         return log_probs
 
 
-def get_accuracy(truth, pred):
+def get_scores(truth, pred, prefix=''):
     assert len(truth) == len(pred)
     right = 0
     for i in range(len(truth)):
         if truth[i] == pred[i]:
             right += 1.0
-    return right / len(truth)
+    acc = right / len(truth)
+    ari = metrics.adjusted_rand_score(truth, pred)
+    ami = metrics.adjusted_mutual_info_score(truth, pred)
+    mmi = metrics.normalized_mutual_info_score(truth, pred)
+    mi = metrics.mutual_info_score(truth, pred)
+    v_measure = metrics.v_measure_score(truth, pred)
+    return {prefix + 'acc': acc,
+            prefix + 'ari': ari,
+            prefix + 'ami': ami,
+            prefix + 'mmi': mmi,
+            prefix + 'mi': mi,
+            prefix + 'v_measure': v_measure}
 
 
-def train():
-    result = data_loader.load_los_data()
+def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
+          los_group=[], save_best_model=False):
+    """Summary
+
+    Args:
+        hidden_dim (int, optional): Description
+        epoch (int, optional): Description
+        optimizer_type (str, optional): Description
+        pretrained_path (TYPE): Description
+        los_groups (str, optional): Description
+        save_best_model (bool, optional): Description
+
+    Returns:
+        list: list of dictionary
+            {epoch: 1, avg_loss: 0, train_acc: 0, test_acc: 0}
+    """
+    logger.info('start train lstml with %s', locals())
+    result = data_loader.load_los_data(
+        los_group=los_group, pretrained_path=pretrained_path)
     train_data = result['train_data']
     test_data = result['test_data']
     feature_to_idx = result['feature_to_idx']
@@ -70,41 +102,51 @@ def train():
     weights_matrix = result['weights_matrix']
 
     EMBEDDING_DIM = 100
-    HIDDEN_DIM = 50
-    EPOCH = 5
     best_test_acc = 0.0
     model = LstmLosClassifier(embedding_dim=EMBEDDING_DIM,
-                              hidden_dim=HIDDEN_DIM,
+                              hidden_dim=hidden_dim,
                               feature_size=len(feature_to_idx),
                               label_size=len(label_to_idx),
                               weights_matrix=weights_matrix,
                               non_trainable=True)
     loss_function = nn.NLLLoss()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # define optimizer
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2)
+    if optimizer_type == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
     no_up = 0
-    for i in range(EPOCH):
+    epoch_results = []
+    for i in range(epoch):
         random.shuffle(train_data)
         logger.info('Epoch: %d start!', i + 1)
-        train_epoch(model, train_data, loss_function,
-                    optimizer, feature_to_idx, label_to_idx, i + 1)
-        logger.info('now best dev acc: %s', best_test_acc)
-        test_acc = evaluate(model, test_data, loss_function,
-                            feature_to_idx, label_to_idx, 'test')
+        temp_result = train_epoch(model, train_data, loss_function, optimizer,
+                                  feature_to_idx, label_to_idx, i + 1)
+        test_scores = evaluate(model, test_data, loss_function,
+                               feature_to_idx, label_to_idx)
+        temp_result.update(test_scores)
+        epoch_results.append(temp_result)
+
+        test_acc = test_scores['test_acc']
         if test_acc > best_test_acc:
             best_test_acc = test_acc
-            os.system('rm ../models/los_best_model_acc_*.model')
-            logger.info('New Best Dev!!!')
-            torch.save(model.state_dict(), '../models/los_best_model_acc_' +
-                       str(int(test_acc * 10000)) + '.model')
+            if save_best_model:
+                os.system('rm ../models/los_best_model_acc_*.model')
+                logger.info('New Best Test!!!')
+                torch.save(model.state_dict(),
+                           '../models/los_best_model_acc_' +
+                           str(int(test_acc * 10000)) + '.model')
             no_up = 0
         else:
             no_up += 1
             if no_up >= 10:
+                logger.info('Stop: No better model after 10 epoch')
                 exit()
+    return epoch_results
 
 
-def evaluate(model, data, loss_function, feature_to_idx, label_to_idx, name='dev'):
+def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
     model.eval()
     avg_loss = 0.0
     truth_res = []
@@ -125,13 +167,27 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx, name='dev
         loss = loss_function(pred, label)
         avg_loss += loss.item()
     avg_loss /= len(data)
-    acc = get_accuracy(truth_res, pred_res)
-    logger.info('%a avg_loss:%g train acc:%g', name, avg_loss, acc)
-    return acc
+    scores = get_scores(truth_res, pred_res, prefix='test_')
+    logger.info('avg_loss:%g train acc: %s', avg_loss, scores['test_acc'])
+    return scores
 
 
 def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
                 label_to_idx, epoch_th):
+    """Summary
+
+    Args:
+        model (TYPE): Description
+        train_data (TYPE): Description
+        loss_function (TYPE): Description
+        optimizer (TYPE): Description
+        feature_to_idx (TYPE): Description
+        label_to_idx (TYPE): Description
+        epoch_th (TYPE): Description
+
+    Returns:
+        DICT: {'epoch': 9, 'avg_loss': 0.8, 'train_acc': 0.7}
+    """
     model.train()
 
     avg_loss = 0.0
@@ -162,12 +218,42 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
         loss.backward()
         optimizer.step()
     avg_loss /= len(train_data)
-    logger.info('Epoch: %d done! train avg_loss:%g , acc:%g',
-                epoch_th, avg_loss, get_accuracy(truth_res, pred_res))
+    scores = get_scores(truth_res, pred_res, prefix='train_')
+    logger.info('Epoch: %d done. \tavg_loss: %g \tacc: %g',
+                epoch_th, avg_loss, scores['train_acc'])
+
+    return scores.update({'epoch': epoch_th, 'avg_loss': avg_loss})
 
 
-logging.basicConfig(
-    # filename='log.log',
-    format='%(asctime)s : %(levelname)s : %(message)s',
-    level=logging.INFO)
-train()
+def grid_search():
+    """Summary
+    """
+    pretrained_dir = '../models/'
+    pretrained_paths = [join(pretrained_dir, f)
+                        for f in listdir(pretrained_dir)
+                        if isfile(join(pretrained_dir, f)) and '.vec' in f]
+    los_groups = data_loader.load_los_groups()
+    logger.info('Total pretrained paths: %s', ','.join(pretrained_paths))
+    logger.info('Total los groups: %s',
+                ','.join([g['name'] for g in los_groups]))
+
+    epochs = 500
+    hidden_dim = 100
+    optimizer_type = 'adam'
+
+    final_results = []
+    for los_group in los_groups:
+        for pretrained_path in pretrained_paths:
+            logger.info('START LSTM: los_group=%s, pretrained_path=%s',
+                        los_group['values'], pretrained_path)
+            results = train(hidden_dim=hidden_dim, epoch=epochs,
+                            optimizer_type=optimizer_type,
+                            pretrained_path=pretrained_path,
+                            los_group=los_group['values'])
+            for item in results:
+                item['los_group'] = los_group['name']
+                item['pretrained_path'] = pretrained_path
+
+            final_results.extend(results)
+            df = pd.DataFrame(final_results)
+            df.to_csv('grid_search_result.csv')

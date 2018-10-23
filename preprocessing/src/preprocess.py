@@ -801,7 +801,7 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
     for step in steps:
         los_groups = list()
         for p in range(min_percentile, max_percentile + step, step):
-            p_value = math.floor(np.percentile(los_values, p) * 10) / 10
+            p_value = int(math.floor(np.percentile(los_values, p) * 10) / 10)
             logger.debug('%s-percentile: %s', p, p_value)
             los_groups.append(p_value)
 
@@ -815,7 +815,8 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
                     len(los_groups) + 1, los_groups_str)
 
     # add >=95% los range
-    p_value = math.floor(np.percentile(los_values, max_percentile) * 10) / 10
+    p_value = int(math.floor(np.percentile(
+        los_values, max_percentile) * 10) / 10)
     result.append({'name': '%s-percentile' % max_percentile,
                    'values': str(p_value)})
     logger.info('>=%s-percentile has 2 groups: [%s]', max_percentile, p_value)
