@@ -678,7 +678,7 @@ def create_admission_train(admission_id, args, export_dir, q_log):
     Add LOS in ICU features: generate a multiple events per hour from `intime`
     to `outtime`
     '''
-    if args['los_icu_m'] is None or args['los_icu_m'] <=0 or args['minutes_before_icu'] is None:
+    if args['los_icu_m'] is None or args['los_icu_m'] <= 0 or args['minutes_before_icu'] is None:
         logger.info('admission_id=%s did not stay in ICU', admission_id)
     else:
         # assert args['minutes_before_icu'] >= 0 # , 'minutes_before_icu ' + args['minutes_before_icu']
@@ -766,16 +766,8 @@ def generate_icu_events(admission_id, minutes_before_icu, los_icu_minutes):
 
 def create_cvd_los_dataset(export_dir, concept_dir='../data'):
     """
-    Split length of stay duration to many sub-groups, called `los_group`
-    And assign `los_group` to each heart admission
-    Split heart admission to train & test (70/30)
-
-    Args:
-        export_dir (TYPE): Description
-        processes (TYPE): Description
-        concept_dir (str, optional): Description
-    """
-    heart_df = get_first_heart_admissions()
+    Export heart admission with its los: `cvd_los_data.csv`
+    Define set of diffent LOS ranges: `los_groups.csv`
 
     # # copy related admission to seperated folder
     # src_dir = '../data/admissions/'
@@ -785,56 +777,49 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
     #     file_name = 'data_train_%s.csv' % admission_id
     #     copyfile(src_dir + file_name, dest_dir + file_name)
 
+
+    Args:
+        export_dir (TYPE): Description
+        processes (TYPE): Description
+        concept_dir (str, optional): Description
+    """
+    heart_df = get_first_heart_admissions()
+
+    # export heart admission with its LOS
+    heart_df.to_csv(os.path.join(export_dir, 'cvd_los_data.csv'),
+                    columns=['hadm_id', 'los_hospital'],
+                    index=False)
+
+    # define different set of LOS ranges: 10%, 20%, 90%, >= 95%
     los_values = heart_df['los_hospital']
-    los_values = [int(v) for v in los_values]
+    los_values = [round(v) for v in los_values]
 
     min_percentile = 5
     max_percentile = 95
-    step = 10
-    los_groups = list()
-    for p in range(min_percentile, max_percentile + step, step):
-        p_value = math.floor(np.percentile(los_values, p) * 10) / 10
-        logger.info('%s-percentile: %s', p, p_value)
-        los_groups.append(p_value)
+    steps = [10, 30, 90]
+    result = []
+    for step in steps:
+        los_groups = list()
+        for p in range(min_percentile, max_percentile + step, step):
+            p_value = math.floor(np.percentile(los_values, p) * 10) / 10
+            logger.debug('%s-percentile: %s', p, p_value)
+            los_groups.append(p_value)
 
-    # remove duplicates and sort lists ascending
-    los_groups = sorted(list(set(los_groups)))
+        # remove duplicates and sort lists ascending
+        los_groups = sorted(list(set(los_groups)), reverse=True)
+        los_groups_str = ','.join([str(i) for i in los_groups])
+        result.append({'name': '%s-percentile' % step,
+                       'values': los_groups_str})
 
-    # insert definition of los group to jvn_los_groups (database)
-    # and update group_index for all heart admissions
-    # heart_df['los_group'] = pd.Series([-1] * heart_df.shape[0], index=heart_df.index)
-    data = heart_df[['hadm_id', 'los_hospital']].to_dict('records')
-    for i in range(len(los_groups) + 1):
-        group_id = i + 1
-        lower_bound = -1
-        upper_bound = -1
-        if i == 0:
-            lower_bound = -1
-            upper_bound = los_groups[i]
+        logger.info('%s-percentile step has %s groups: [%s]', step,
+                    len(los_groups) + 1, los_groups_str)
 
-        elif i == len(los_groups):
-            # assume that patients will not stay in hospital more than 10 years
-            lower_bound = los_groups[i - 1]
-            upper_bound = 365 * 10
-        else:
-            lower_bound = los_groups[i - 1]
-            upper_bound = los_groups[i]
+    # add >=95% los range
+    p_value = math.floor(np.percentile(los_values, max_percentile) * 10) / 10
+    result.append({'name': '%s-percentile' % max_percentile,
+                   'values': str(p_value)})
+    logger.info('>=%s-percentile has 2 groups: [%s]', max_percentile, p_value)
 
-        insert_los_group(group_id, lower_bound, upper_bound)
-        for item in data:
-            if item['los_hospital'] >= lower_bound and item['los_hospital'] < upper_bound:
-                item['los_group'] = group_id
-
-    # split to train/test set
-    random.seed(1)
-    random.shuffle(data)
-    split_idx = int(len(data) * 0.7)
-    train_df = pd.DataFrame(data[: split_idx])
-    train_df.to_csv(os.path.join(export_dir, 'cvd_los_data.train'),
-                    index=False)
-    logger.info('Number of training samples: %s', train_df.shape[0])
-
-    test_df = pd.DataFrame(data[split_idx:])
-    test_df.to_csv(os.path.join(export_dir, 'cvd_los_data.test'),
-                   index=False)
-    logger.info('Number of testing samples: %s', test_df.shape[0])
+    # export los group to csv
+    df = pd.DataFrame(result)
+    df.to_csv(os.path.join(export_dir, 'los_groups.csv'), index=False)

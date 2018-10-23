@@ -230,5 +230,17 @@ Here is command to generate:
 ```
 $ cd preprocessing
 $ python3 main.py create_los_dataset -cd ../data -ed ../data/los
+
+# using int()
+2018-10-23 21:30:44,885 : INFO : 10-percentile step has 10 groups: [21.0,13.0,10.0,8.0,7.0,5.0,4.0,3.0,2.0]
+2018-10-23 21:30:44,886 : INFO : 30-percentile step has 5 groups: [21.0,8.0,4.0,2.0]
+2018-10-23 21:30:44,887 : INFO : 90-percentile step has 3 groups: [21.0,2.0]
+2018-10-23 21:30:44,887 : INFO : >=95-percentile has 2 groups: [21.0]
+
+# using round()
+2018-10-23 21:35:35,247 : INFO : 10-percentile step has 11 groups: [21.0,14.0,10.0,9.0,7.0,6.0,5.0,4.0,3.0,2.0]
+2018-10-23 21:35:35,248 : INFO : 30-percentile step has 5 groups: [21.0,9.0,5.0,2.0]
+2018-10-23 21:35:35,249 : INFO : 90-percentile step has 3 groups: [21.0,2.0]
+2018-10-23 21:35:35,249 : INFO : >=95-percentile has 2 groups: [21.0]
 ```
 It does NOT take too long to complish.
