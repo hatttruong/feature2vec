@@ -297,6 +297,8 @@ def load_los_data(los_group, pretrained_path=None):
     # split train/test
     train_data = [s for s in samples if s['admission_id'] in train_admission_ids]
     test_data = [s for s in samples if s['admission_id'] in test_admission_ids]
+    random.shuffle(train_data)
+    random.shuffle(test_data)
     logger.info('train: %s, test: %s', len(train_data), len(test_data))
 
     logger.info('loading data done!')

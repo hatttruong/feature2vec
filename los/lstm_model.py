@@ -14,6 +14,7 @@ import os
 import random
 import logging
 from sklearn import metrics
+from sklearn.metrics.cluster import contingency_matrix
 from os import listdir
 from os.path import isfile, join
 
@@ -92,7 +93,7 @@ def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
         list: list of dictionary
             {epoch: 1, avg_loss: 0, train_acc: 0, test_acc: 0}
     """
-    logger.info('start train lstml with %s', locals())
+    logger.info('Train LSTM with parameters: %s', locals())
     result = data_loader.load_los_data(
         los_group=los_group, pretrained_path=pretrained_path)
     train_data = result['train_data']
@@ -123,8 +124,10 @@ def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
         logger.info('Epoch: %d start!', i + 1)
         temp_result = train_epoch(model, train_data, loss_function, optimizer,
                                   feature_to_idx, label_to_idx, i + 1)
+        # logger.info('train_epoch result: %s', temp_result)
         test_scores = evaluate(model, test_data, loss_function,
                                feature_to_idx, label_to_idx)
+        # logger.info('test_scores: %s', test_scores)
         temp_result.update(test_scores)
         epoch_results.append(temp_result)
 
@@ -162,13 +165,14 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
         label = data_loader.prepare_label(label, label_to_idx)
         pred = model(events)
         pred_label = pred.data.max(1)[1].numpy()
-        pred_res.append(pred_label)
+        pred_res.extend(pred_label)
 
         loss = loss_function(pred, label)
         avg_loss += loss.item()
     avg_loss /= len(data)
     scores = get_scores(truth_res, pred_res, prefix='test_')
-    logger.info('avg_loss:%g train acc: %s', avg_loss, scores['test_acc'])
+    logger.info('Evaluate: \tavg_loss:%g \ttrain acc: %s',
+                avg_loss, scores['test_acc'])
     return scores
 
 
@@ -206,7 +210,9 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
         label = data_loader.prepare_label(label, label_to_idx)
         pred = model(events)
         pred_label = pred.data.max(1)[1].numpy()
-        pred_res.append(pred_label)
+        # logger.debug('predict result: %s, pred_label: %s', pred.data, pred_label)
+        pred_res.extend(pred_label)
+
         model.zero_grad()
         loss = loss_function(pred, label)
         avg_loss += loss.item()
@@ -218,11 +224,15 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
         loss.backward()
         optimizer.step()
     avg_loss /= len(train_data)
+    # logger.debug('truth_res: %s', truth_res)
+    # logger.debug('pred_res: %s', pred_res)
+
     scores = get_scores(truth_res, pred_res, prefix='train_')
+    scores.update({'epoch': epoch_th, 'avg_loss': avg_loss})
     logger.info('Epoch: %d done. \tavg_loss: %g \tacc: %g',
                 epoch_th, avg_loss, scores['train_acc'])
 
-    return scores.update({'epoch': epoch_th, 'avg_loss': avg_loss})
+    return scores
 
 
 def grid_search():
@@ -242,6 +252,7 @@ def grid_search():
     optimizer_type = 'adam'
 
     final_results = []
+    logger.info('START GRID SEARCH...')
     for los_group in los_groups:
         for pretrained_path in pretrained_paths:
             logger.info('START LSTM: los_group=%s, pretrained_path=%s',
@@ -257,3 +268,6 @@ def grid_search():
             final_results.extend(results)
             df = pd.DataFrame(final_results)
             df.to_csv('grid_search_result.csv')
+            logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
+                        los_group['values'], pretrained_path)
+    logger.info('DONE GRID SEARCH.')
