@@ -1,6 +1,13 @@
 # Use LSTM to predict LOS#
 
 ## Setup
+
+* Requirement:
+    - Linux/MAC: Python 2.7, or >=3.5
+    - Windown: Python >= 3.5
+
+* Install Pytorch: refer to [this link](https://pytorch.org/get-started/locally/) to get exactly command to install
+
 ```
 pip3 install torch
 ```
@@ -37,6 +44,14 @@ $ python3 main.py
 
 ```
 ### 2. LSTM with pretrain features using Skip-MF
+
+#### Grid Search
+
+```
+# RUN on SERVER TP7
+$ sudo python main.py -pd /media/tuanta/USB/hattt/models
+
+```
 
 #### 2.1 CASE 1
 ```

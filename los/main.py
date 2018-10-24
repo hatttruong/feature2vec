@@ -23,6 +23,9 @@ if __name__ == '__main__':
         help='define action: train model or experiment all parameters'
     )
     parser.add_argument(
+        '-pd', '--pretrained_dir', default='../models',
+        help='path to pretrained dir (for grid_search)')
+    parser.add_argument(
         '-pp', '--pretrained_path', default=None,
         help='path to pretrained vectors')
     parser.add_argument(
@@ -43,4 +46,4 @@ if __name__ == '__main__':
                          optimizer_type=args.optimizer_type,
                          pretrained_path=args.pretrained_path)
     else:
-        lstm_model.grid_search()
+        lstm_model.grid_search(pretrained_dir=args.pretrained_dir)

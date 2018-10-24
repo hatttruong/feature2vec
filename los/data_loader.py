@@ -14,6 +14,7 @@ import pandas as pd
 import logging
 import json
 import numpy as np
+import collections
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ def create_train_data(admission_id, los_value, los_group, concept_definitions):
         LIST: list of dictionary
     """
     events_df = pd.read_csv(
-        DATA_DIR + '/admissions/data_train_%s.csv' % int(admission_id),
+        DATA_DIR + '/heart_admissions/data_train_%s.csv' % int(admission_id),
         header=None,
         names=['admission_id', 'minutes_ago', 'itemid', 'value'])
     samples = list()
@@ -168,7 +169,7 @@ def create_train_data(admission_id, los_value, los_group, concept_definitions):
                 {'admission_id': admission_id,
                  'event_range': upper_bound,
                  'los_group': get_los_group_idx(los_value - upper_bound * 1.0 / 24, los_group),
-                 'events': event_ids.copy()
+                 'events': list(event_ids)
                  })
             upper_bound += step
 
@@ -225,7 +226,7 @@ def load_los_groups():
     return los_groups
 
 
-def load_los_data(los_group, pretrained_path=None):
+def load_los_data(los_group, pretrained_path=None, min_threshold=5):
     """
     train/test data: is a list of dictionary
         {'hadm_id': 194126, 'los_group': 9, 'event_range': 6,
@@ -254,7 +255,7 @@ def load_los_data(los_group, pretrained_path=None):
     # for each admissions, create samples with different time range
     logger.info('load events for each admission')
     concept_definitions = load_concept_definition()
-    features = set()
+    features = collections.Counter()
     samples = []
     for index, admission in enumerate(data_dict):
         temp_samples, event_ids = create_train_data(admission['hadm_id'],
@@ -263,7 +264,7 @@ def load_los_data(los_group, pretrained_path=None):
                                                     concept_definitions)
         samples.extend(temp_samples)
 
-        features.update(set(event_ids))
+        features.update(event_ids)
 
         sys.stdout.write('\r')
         sys.stdout.write(
@@ -272,11 +273,16 @@ def load_los_data(los_group, pretrained_path=None):
         sys.stdout.flush()
     sys.stdout.write('\r')
 
-    # define feature to index
+    # define feature to index, keep features with frequency >= min_threshold
     feature_to_idx = dict()
     for f in features:
-        feature_to_idx[f] = len(feature_to_idx)
-    feature_to_idx['<pad>'] = len(feature_to_idx)
+        if features[f] >= min_threshold:
+            feature_to_idx[f] = len(feature_to_idx)
+    # feature_to_idx['<pad>'] = len(feature_to_idx)
+
+    # remove unused features in samples
+    for s in samples:
+        s['events'] = [e for e in s['events'] if e in feature_to_idx.keys()]
 
     # define label to index
     label_to_idx = dict()

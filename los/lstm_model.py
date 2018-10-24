@@ -144,8 +144,8 @@ def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
         else:
             no_up += 1
             if no_up >= 10:
-                logger.info('Stop: No better model after 10 epoch')
-                exit()
+                logger.info('STOP TRAINING: No better model after 10 epoch')
+                break
     return epoch_results
 
 
@@ -235,10 +235,9 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
     return scores
 
 
-def grid_search():
+def grid_search(pretrained_dir):
     """Summary
     """
-    pretrained_dir = '../models/'
     pretrained_paths = [join(pretrained_dir, f)
                         for f in listdir(pretrained_dir)
                         if isfile(join(pretrained_dir, f)) and '.vec' in f]
