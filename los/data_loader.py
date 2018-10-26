@@ -16,7 +16,20 @@ import json
 import numpy as np
 import collections
 
+# define a Handler which writes INFO messages or higher to the sys.stderr
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+
+# set a format which is simpler for console use
+formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(message)s')
+
+# tell the handler to use this format
+console.setFormatter(formatter)
+
+# add the handler to the root logger
 logger = logging.getLogger(__name__)
+logger.addHandler(console)
+
 
 SEED = 1
 DATA_DIR = '../data'

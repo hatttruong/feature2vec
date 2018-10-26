@@ -10,7 +10,7 @@ import argparse
 import lstm_model
 
 logging.basicConfig(
-    # filename='log.log',
+    filename='log_los.log',
     format='%(asctime)s : %(levelname)s : %(message)s',
     level=logging.INFO)
 

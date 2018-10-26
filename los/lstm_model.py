@@ -19,7 +19,20 @@ import pandas as pd
 from os import listdir
 from os.path import isfile, join
 
+# define a Handler which writes INFO messages or higher to the sys.stderr
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+
+# set a format which is simpler for console use
+formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(message)s')
+
+# tell the handler to use this format
+console.setFormatter(formatter)
+
+# add the handler to the root logger
 logger = logging.getLogger(__name__)
+logger.addHandler(console)
+
 
 torch.set_num_threads(8)
 torch.manual_seed(1)
@@ -29,14 +42,16 @@ random.seed(1)
 class LstmLosClassifier(nn.Module):
 
     def __init__(self, embedding_dim, hidden_dim, feature_size, label_size,
-                 weights_matrix=None, non_trainable=False):
+                 weights_matrix=None):
         super(LstmLosClassifier, self).__init__()
         self.hidden_dim = hidden_dim
         self.feature_embeddings = nn.Embedding(feature_size, embedding_dim)
+        self.non_trainable = False
         if weights_matrix is not None:
+            self.non_trainable = True
             self.feature_embeddings.weight.data.copy_(
                 torch.from_numpy(weights_matrix))
-            if non_trainable:
+            if self.non_trainable:
                 self.feature_embeddings.weight.requires_grad = False
 
         self.lstm = nn.LSTM(embedding_dim, hidden_dim)
@@ -78,22 +93,30 @@ def get_scores(truth, pred, prefix=''):
             prefix + 'v_measure': v_measure}
 
 
-def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
-          los_group=[], save_best_model=False):
+def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
+          pretrained_path=None, los_group=[], save_best_model=False):
     """Summary
 
     Args:
         hidden_dim (int, optional): Description
         epoch (int, optional): Description
         optimizer_type (str, optional): Description
+        lr (float, optional): should use 1e-2 if using optimize sgd, 1e-3 with adam
+        clip (float, optional): Description
         pretrained_path (TYPE): Description
-        los_groups (str, optional): Description
+        los_group (list, optional): Description
         save_best_model (bool, optional): Description
 
     Returns:
         list: list of dictionary
             {epoch: 1, avg_loss: 0, train_acc: 0, test_acc: 0}
+
+    Deleted Parameters:
+        los_groups (str, optional): Description
     """
+    EMBEDDING_DIM = 100
+    MAX_NO_UP_EPOCH = 5
+
     logger.info('Train LSTM with parameters: %s', locals())
     result = data_loader.load_los_data(
         los_group=los_group, pretrained_path=pretrained_path)
@@ -103,34 +126,38 @@ def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
     label_to_idx = result['label_to_idx']
     weights_matrix = result['weights_matrix']
 
-    EMBEDDING_DIM = 100
     best_test_acc = 0.0
     model = LstmLosClassifier(embedding_dim=EMBEDDING_DIM,
                               hidden_dim=hidden_dim,
                               feature_size=len(feature_to_idx),
                               label_size=len(label_to_idx),
-                              weights_matrix=weights_matrix,
-                              non_trainable=True)
+                              weights_matrix=weights_matrix)
     loss_function = nn.NLLLoss()
 
     # define optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     if optimizer_type == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
 
     no_up = 0
     epoch_results = []
     for i in range(epoch):
         random.shuffle(train_data)
         logger.info('Epoch: %d start!', i + 1)
-        temp_result = train_epoch(model, train_data, loss_function, optimizer,
-                                  feature_to_idx, label_to_idx, i + 1)
+        temp_result, avg_loss = train_epoch(model, train_data, loss_function,
+                                            optimizer, feature_to_idx,
+                                            label_to_idx, i + 1, lr, clip)
         # logger.info('train_epoch result: %s', temp_result)
         test_scores = evaluate(model, test_data, loss_function,
                                feature_to_idx, label_to_idx)
         # logger.info('test_scores: %s', test_scores)
         temp_result.update(test_scores)
         epoch_results.append(temp_result)
+
+        # stop training if avg_loss is nan
+        if avg_loss == float('nan'):
+            logger.info('WARNING: avg_loss is nan, STOP training')
+            break
 
         test_acc = test_scores['test_acc']
         if test_acc > best_test_acc:
@@ -144,8 +171,11 @@ def train(hidden_dim=50, epoch=5, optimizer_type='sgd', pretrained_path=None,
             no_up = 0
         else:
             no_up += 1
-            if no_up >= 10:
-                logger.info('STOP TRAINING: No better model after 10 epoch')
+            logger.info('WARNING: No better model after %s epoch', no_up)
+            if no_up >= MAX_NO_UP_EPOCH:
+                logger.info(
+                    'STOP TRAINING: No better model after %s epoch',
+                    MAX_NO_UP_EPOCH)
                 break
     return epoch_results
 
@@ -178,7 +208,7 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
 
 
 def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
-                label_to_idx, epoch_th):
+                label_to_idx, epoch_th, lr, clip):
     """Summary
 
     Args:
@@ -223,7 +253,18 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
                         epoch_th, count, loss.item())
 
         loss.backward()
+
+        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+        if model.non_trainable is False:
+            nn.utils.clip_grad_norm_(model.parameters(), clip)
+            for p in model.parameters():
+                # re-check if this model could be trainable
+                if p.grad is None:
+                    break
+                p.data.add_(-lr, p.grad.data)
+
         optimizer.step()
+
     avg_loss /= len(train_data)
     # logger.debug('truth_res: %s', truth_res)
     # logger.debug('pred_res: %s', pred_res)
@@ -233,17 +274,20 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
     logger.info('Epoch: %d done. \tavg_loss: %g \tacc: %g',
                 epoch_th, avg_loss, scores['train_acc'])
 
-    return scores
+    return scores, avg_loss
 
 
 def grid_search(pretrained_dir):
     """Summary
     """
-    pretrained_paths = [join(pretrained_dir, f)
-                        for f in listdir(pretrained_dir)
-                        if isfile(join(pretrained_dir, f)) and '.vec' in f]
+    pretrained_paths = [None]
+    pretrained_paths.extend(
+        [join(pretrained_dir, f) for f in listdir(pretrained_dir)
+         if isfile(join(pretrained_dir, f)) and '.vec' in f])
+
     los_groups = data_loader.load_los_groups()
-    logger.info('Total pretrained paths: %s', ','.join(pretrained_paths))
+    logger.info('Total pretrained paths: %s',
+                ','.join([f if f is not None else 'None' for f in pretrained_paths]))
     logger.info('Total los groups: %s',
                 ','.join([g['name'] for g in los_groups]))
 
@@ -252,9 +296,22 @@ def grid_search(pretrained_dir):
     optimizer_type = 'adam'
 
     final_results = []
+    skip = 0
     logger.info('START GRID SEARCH...')
+
+    done = 0
     for los_group in los_groups:
         for pretrained_path in pretrained_paths:
+            done += 1
+
+            # START ad-hoc: some case is done, skip it
+            if skip > 0:
+                skip -= 1
+                logger.info('SKIP: los_group=%s, pretrained_path=%s',
+                            los_group['values'], pretrained_path)
+                continue
+            # END ad-hoc: some case is done, skip it
+
             logger.info('START LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
             results = train(hidden_dim=hidden_dim, epoch=epochs,
@@ -267,7 +324,7 @@ def grid_search(pretrained_dir):
 
             final_results.extend(results)
             df = pd.DataFrame(final_results)
-            df.to_csv('grid_search_result.csv', index=False)
+            df.to_csv('grid_search_result_%s.csv' % done, index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
     logger.info('DONE GRID SEARCH.')

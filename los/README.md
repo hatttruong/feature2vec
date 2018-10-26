@@ -64,6 +64,21 @@ create train data for 3213 admissions, total samples: 19448
 feature size: 18983, label size: 11
 ```
 
+Some notes:
+
+* with 2 LOS groups:
+    - each epoch takes **1.5 hours** to train, **10 minutes** to evaluate
+    - accuracy starts at **94.5%**
+* with 3 LOS groups:
+    - each epoch takes **cc hours** to train, **cc minutes** to evaluate
+    - accuracy is about **0.**
+* with 5 LOS groups:
+    - each epoch takes **2 hours** to train, **20 minutes** to evaluate
+    - accuracy is about **40.79%**
+* with 11 LOS groups:
+    - each epoch takes **cc hours** to train, **cc minutes** to evaluate
+    - accuracy is about **0.**
+
 #### 2.1 CASE 1
 ```
 $ cd los
