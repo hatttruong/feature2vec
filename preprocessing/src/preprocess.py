@@ -786,7 +786,7 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
     heart_df = get_first_heart_admissions()
 
     # export heart admission with its LOS
-    heart_df.to_csv(os.path.join(export_dir, 'cvd_los_data.csv'),
+    heart_df.to_csv(join(export_dir, 'cvd_los_data.csv'),
                     columns=['hadm_id', 'los_hospital'],
                     index=False)
 
@@ -796,8 +796,16 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
 
     min_percentile = 5
     max_percentile = 95
-    steps = [10, 30, 90]
     result = []
+
+    # add >=95% los range
+    p_value = int(math.floor(np.percentile(
+        los_values, max_percentile) * 10) / 10)
+    result.append({'name': '%s-percentile' % max_percentile,
+                   'values': str(p_value)})
+    logger.info('>=%s-percentile has 2 groups: [%s]', max_percentile, p_value)
+
+    steps = [90, 30, 10]
     for step in steps:
         los_groups = list()
         for p in range(min_percentile, max_percentile + step, step):
@@ -813,13 +821,6 @@ def create_cvd_los_dataset(export_dir, concept_dir='../data'):
 
         logger.info('%s-percentile step has %s groups: [%s]', step,
                     len(los_groups) + 1, los_groups_str)
-
-    # add >=95% los range
-    p_value = int(math.floor(np.percentile(
-        los_values, max_percentile) * 10) / 10)
-    result.append({'name': '%s-percentile' % max_percentile,
-                   'values': str(p_value)})
-    logger.info('>=%s-percentile has 2 groups: [%s]', max_percentile, p_value)
 
     # export los group to csv
     df = pd.DataFrame(result)
