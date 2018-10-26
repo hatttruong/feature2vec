@@ -268,10 +268,12 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
 
         sys.stdout.write('\r')
         sys.stdout.write(
-            'Create train data for %s admissions, total samples: %s' % (
+            'create train data for %s admissions, total samples: %s' % (
                 index, len(samples)))
         sys.stdout.flush()
     sys.stdout.write('\r')
+    logger.info('create train data for %s admissions, total samples: %s' % (
+                len(data_dict), len(samples)))
 
     # define feature to index, keep features with frequency >= min_threshold
     feature_to_idx = dict()
@@ -281,13 +283,22 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
     # feature_to_idx['<pad>'] = len(feature_to_idx)
 
     # remove unused features in samples
-    for s in samples:
-        s['events'] = [e for e in s['events'] if e in feature_to_idx.keys()]
+    for idx, _ in enumerate(samples):
+        samples[idx]['events'] = [e for e in samples[idx]['events']
+                                  if e in feature_to_idx.keys()]
+        sys.stdout.write('\r')
+        sys.stdout.write(
+            'remove unused features in %s samples...' % idx)
+        sys.stdout.flush()
+    sys.stdout.write('\r')
 
     # define label to index
     label_to_idx = dict()
     for i in range(len(los_group) + 1):
         label_to_idx[i] = i
+
+    logger.info('feature size: %s, label size: %s',
+                len(feature_to_idx), len(label_to_idx))
 
     # load vectors for each features
     weights_matrix = None
@@ -297,11 +308,9 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
         weights_matrix = build_weights_matrix(feature_to_idx, vector_size,
                                               id_to_vectors)
 
-    logger.info('feature size: %s, label size: %s',
-                len(feature_to_idx), len(label_to_idx))
-
     # split train/test
-    train_data = [s for s in samples if s['admission_id'] in train_admission_ids]
+    train_data = [s for s in samples if s[
+        'admission_id'] in train_admission_ids]
     test_data = [s for s in samples if s['admission_id'] in test_admission_ids]
     random.shuffle(train_data)
     random.shuffle(test_data)

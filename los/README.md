@@ -45,12 +45,23 @@ $ python3 main.py
 ```
 ### 2. LSTM with pretrain features using Skip-MF
 
+* With `min_threshold=0`: feature size: 35234, label size: 11
+* With `min_threshold=5`: feature size: 18983, label size: 11
+
+Total number of features reduces a half when applying `min_threshold` = 5
+
 #### Grid Search
 
 ```
 # RUN on SERVER TP7
-$ sudo python main.py -pd /media/tuanta/USB/hattt/models
+$ sudo python main.py experiment -pd /media/tuanta/USB/hattt/models
 
+# RUN on local
+$ python3 main.py experiment -pd ../models
+
+
+create train data for 3213 admissions, total samples: 19448
+feature size: 18983, label size: 11
 ```
 
 #### 2.1 CASE 1

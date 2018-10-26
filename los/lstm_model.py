@@ -15,6 +15,7 @@ import random
 import logging
 from sklearn import metrics
 from sklearn.metrics.cluster import contingency_matrix
+import pandas as pd
 from os import listdir
 from os.path import isfile, join
 
@@ -266,7 +267,7 @@ def grid_search(pretrained_dir):
 
             final_results.extend(results)
             df = pd.DataFrame(final_results)
-            df.to_csv('grid_search_result.csv')
+            df.to_csv('grid_search_result.csv', index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
     logger.info('DONE GRID SEARCH.')
