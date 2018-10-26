@@ -115,7 +115,7 @@ def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
         los_groups (str, optional): Description
     """
     EMBEDDING_DIM = 100
-    MAX_NO_UP_EPOCH = 5
+    MAX_NO_UP_EPOCH = 3
 
     logger.info('Train LSTM with parameters: %s', locals())
     result = data_loader.load_los_data(
@@ -202,7 +202,7 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
         avg_loss += loss.item()
     avg_loss /= len(data)
     scores = get_scores(truth_res, pred_res, prefix='test_')
-    logger.info('Evaluate: \tavg_loss:%g \ttrain acc: %s',
+    logger.info('Evaluate: \tavg_loss:%g \ttest acc: %s',
                 avg_loss, scores['test_acc'])
     return scores
 

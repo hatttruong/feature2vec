@@ -298,7 +298,7 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
     # remove unused features in samples
     for idx, _ in enumerate(samples):
         samples[idx]['events'] = [e for e in samples[idx]['events']
-                                  if e in feature_to_idx.keys()]
+                                  if e in feature_to_idx]
         sys.stdout.write('\r')
         sys.stdout.write(
             'remove unused features in %s samples...' % idx)

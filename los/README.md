@@ -67,17 +67,17 @@ feature size: 18983, label size: 11
 Some notes:
 
 * with 2 LOS groups:
-    - each epoch takes **1.5 hours** to train, **10 minutes** to evaluate
-    - accuracy starts at **94.5%**
+    - [WITHOUT pretrain]: **2 hours**/epoch, **minutes**/evaluate, accuracy: **%**
+    - [WITH pretrain]: **1.5 hours**/epoch, **10 minutes**/evaluate, accuracy: **94.5%**
 * with 3 LOS groups:
-    - each epoch takes **cc hours** to train, **cc minutes** to evaluate
-    - accuracy is about **0.**
+    - [WITHOUT pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
+    - [WITH pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
 * with 5 LOS groups:
-    - each epoch takes **2 hours** to train, **20 minutes** to evaluate
-    - accuracy is about **40.79%**
+    - [WITHOUT pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
+    - [WITH pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
 * with 11 LOS groups:
-    - each epoch takes **cc hours** to train, **cc minutes** to evaluate
-    - accuracy is about **0.**
+    - [WITHOUT pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
+    - [WITH pretrain]: **hours**/epoch, **minutes**/evaluate, accuracy: **%**
 
 #### 2.1 CASE 1
 ```
