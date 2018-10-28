@@ -54,10 +54,10 @@ Total number of features reduces a half when applying `min_threshold` = 5
 
 ```
 # RUN on SERVER TP7
-$ sudo python main.py experiment -pd /media/tuanta/USB/hattt/models
+$ sudo python main.py experiment -pd /media/tuanta/USB/hattt/models  -ld ../data/los/los_groups.csv
 
 # RUN on local
-$ python3 main.py experiment -pd ../models
+$ python3 main.py experiment -pd ../models -ld ../data/los/los_groups.csv
 
 
 create train data for 3213 admissions, total samples: 19448

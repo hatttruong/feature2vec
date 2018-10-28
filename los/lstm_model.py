@@ -277,7 +277,7 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
     return scores, avg_loss
 
 
-def grid_search(pretrained_dir):
+def grid_search(pretrained_dir, los_groups_path):
     """Summary
     """
     pretrained_paths = [None]
@@ -285,7 +285,7 @@ def grid_search(pretrained_dir):
         [join(pretrained_dir, f) for f in listdir(pretrained_dir)
          if isfile(join(pretrained_dir, f)) and '.vec' in f])
 
-    los_groups = data_loader.load_los_groups()
+    los_groups = data_loader.load_los_groups(los_groups_path)
     logger.info('Total pretrained paths: %s',
                 ','.join([f if f is not None else 'None' for f in pretrained_paths]))
     logger.info('Total los groups: %s',
@@ -295,14 +295,11 @@ def grid_search(pretrained_dir):
     hidden_dim = 100
     optimizer_type = 'adam'
 
-    final_results = []
     skip = 0
     logger.info('START GRID SEARCH...')
 
-    done = 0
     for los_group in los_groups:
-        for pretrained_path in pretrained_paths:
-            done += 1
+        for pretrained_path in reversed(pretrained_paths):
 
             # START ad-hoc: some case is done, skip it
             if skip > 0:
@@ -322,9 +319,11 @@ def grid_search(pretrained_dir):
                 item['los_group'] = los_group['name']
                 item['pretrained_path'] = pretrained_path
 
-            final_results.extend(results)
-            df = pd.DataFrame(final_results)
-            df.to_csv('grid_search_result_%s.csv' % done, index=False)
+            df = pd.DataFrame(results)
+            short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
+            df.to_csv('grid_search_result_%s_%s.csv' % (los_group,
+                                                        short_pretrain_path),
+                      index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
     logger.info('DONE GRID SEARCH.')

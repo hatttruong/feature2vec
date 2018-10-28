@@ -231,8 +231,11 @@ def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors):
     return weights_matrix
 
 
-def load_los_groups():
-    df = pd.read_csv(LOS_GROUPS_PATH)
+def load_los_groups(los_groups_path=None):
+    if los_groups_path is not None:
+        df = pd.read_csv(los_groups_path)
+    else:
+        df = pd.read_csv(LOS_GROUPS_PATH)
     los_groups = df.to_dict('records')
     for index, g in enumerate(los_groups):
         g['values'] = [int(v) for v in g['values'].split(',')]
