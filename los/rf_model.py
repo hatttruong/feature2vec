@@ -180,7 +180,7 @@ def load_data(los_splitters):
     return X_train_df.values, y_train, X_test_df.values, y_test
 
 
-def rf_gridsearch(X_train, y_train, X_test, y_test):
+def rf_gridsearch(X_train, y_train, X_test, y_test, is_binary=True):
     n_estimators = [int(x) for x in np.linspace(start=200, stop=5000, num=10)]
     max_features = ['auto', 'sqrt', 'log2']
     max_depth = [int(x) for x in np.linspace(100, 1000, num=5)]
@@ -224,9 +224,13 @@ def rf_gridsearch(X_train, y_train, X_test, y_test):
         logger.info("The scores are computed on the full evaluation set.")
         y_true, y_pred = y_test, clf.predict(X_test)
         logger.info('accuracy: %s', accuracy_score(y_true, y_pred))
-        logger.info('f1_score: %s', f1_score(y_true, y_pred))
-        logger.info('precision_score: %s', precision_score(y_true, y_pred))
-        logger.info('recall_score: %s', recall_score(y_true, y_pred))
+
+        average = 'binary' if is_binary else 'weighted'
+        logger.info('f1_score: %s', f1_score(y_true, y_pred, average=average))
+        logger.info('precision_score: %s', precision_score(
+            y_true, y_pred, average=average))
+        logger.info('recall_score: %s', recall_score(
+            y_true, y_pred, average=average))
         logger.info(classification_report(y_true, y_pred))
         logger.info('Confusion_matrix: \n%s',
                     confusion_matrix(y_true, y_pred))
@@ -236,7 +240,13 @@ def rf_experiments():
     los_groups = data_loader.load_los_groups()
     logger.info('Total los groups: %s', los_groups)
 
+    # START Ad-hoc
+    skip = 0
+    # END ad-hoc
     for los_group in los_groups:
+        if skip > 0:
+            skip -= 1
+            continue
         logger.info('START train with los_group=%s', los_group['name'])
 
         X_train, y_train, X_test, y_test = load_data(los_group['values'])

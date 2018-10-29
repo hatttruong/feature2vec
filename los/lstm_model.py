@@ -15,6 +15,11 @@ import random
 import logging
 from sklearn import metrics
 from sklearn.metrics.cluster import contingency_matrix
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
@@ -75,24 +80,34 @@ class LstmLosClassifier(nn.Module):
         return log_probs
 
 
-def get_scores(truth, pred, prefix=''):
-    assert len(truth) == len(pred)
-    right = 0
-    for i in range(len(truth)):
-        if truth[i] == pred[i]:
-            right += 1.0
-    acc = right / len(truth)
-    ari = metrics.adjusted_rand_score(truth, pred)
-    ami = metrics.adjusted_mutual_info_score(truth, pred)
-    mmi = metrics.normalized_mutual_info_score(truth, pred)
-    mi = metrics.mutual_info_score(truth, pred)
-    v_measure = metrics.v_measure_score(truth, pred)
+def get_scores(y_true, y_pred, prefix=''):
+    assert len(y_true) == len(y_pred)
+    is_binary = True if len(set(y_true)) == 2 else False
+
+    acc = accuracy_score(y_true, y_pred)
+
+    average = 'binary' if is_binary else 'weighted'
+    f1_value = f1_score(y_true, y_pred, average=average)
+    precision_value = precision_score(y_true, y_pred, average=average)
+    recall_value = recall_score(y_true, y_pred, average=average)
+    logger.info('Confusion_matrix: \n%s',
+                confusion_matrix(y_true, y_pred))
+
+    ari = metrics.adjusted_rand_score(y_true, y_pred)
+    ami = metrics.adjusted_mutual_info_score(y_true, y_pred)
+    mmi = metrics.normalized_mutual_info_score(y_true, y_pred)
+    mi = metrics.mutual_info_score(y_true, y_pred)
+    v_measure = metrics.v_measure_score(y_true, y_pred)
     return {prefix + 'acc': acc,
             prefix + 'ari': ari,
             prefix + 'ami': ami,
             prefix + 'mmi': mmi,
             prefix + 'mi': mi,
-            prefix + 'v_measure': v_measure}
+            prefix + 'v_measure': v_measure,
+            prefix + 'f1': f1_value,
+            prefix + 'precision': precision_value,
+            prefix + 'recall': recall_value,
+            }
 
 
 def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
