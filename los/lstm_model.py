@@ -18,6 +18,8 @@ from sklearn.metrics.cluster import contingency_matrix
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
+from multiprocessing import Pool
+import multiprocessing
 
 # define a Handler which writes INFO messages or higher to the sys.stderr
 console = logging.StreamHandler()
@@ -94,7 +96,7 @@ def get_scores(truth, pred, prefix=''):
 
 
 def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
-          pretrained_path=None, los_group=[], save_best_model=False):
+          pretrained_path=None, los_splitters=[], save_best_model=False):
     """Summary
 
     Args:
@@ -104,7 +106,7 @@ def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
         lr (float, optional): should use 1e-2 if using optimize sgd, 1e-3 with adam
         clip (float, optional): Description
         pretrained_path (TYPE): Description
-        los_group (list, optional): Description
+        los_splitters (list, optional): Description
         save_best_model (bool, optional): Description
 
     Returns:
@@ -119,7 +121,7 @@ def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
 
     logger.info('Train LSTM with parameters: %s', locals())
     result = data_loader.load_los_data(
-        los_group=los_group, pretrained_path=pretrained_path)
+        los_splitters=los_splitters, pretrained_path=pretrained_path)
     train_data = result['train_data']
     test_data = result['test_data']
     feature_to_idx = result['feature_to_idx']
@@ -295,35 +297,109 @@ def grid_search(pretrained_dir, los_groups_path):
     hidden_dim = 100
     optimizer_type = 'adam'
 
-    skip = 0
+    skip = 1
     logger.info('START GRID SEARCH...')
 
     for los_group in los_groups:
         for pretrained_path in reversed(pretrained_paths):
-
-            # START ad-hoc: some case is done, skip it
             if skip > 0:
                 skip -= 1
-                logger.info('SKIP: los_group=%s, pretrained_path=%s',
-                            los_group['values'], pretrained_path)
                 continue
-            # END ad-hoc: some case is done, skip it
 
             logger.info('START LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
             results = train(hidden_dim=hidden_dim, epoch=epochs,
                             optimizer_type=optimizer_type,
                             pretrained_path=pretrained_path,
-                            los_group=los_group['values'])
+                            los_splitters=los_group['values'])
             for item in results:
                 item['los_group'] = los_group['name']
                 item['pretrained_path'] = pretrained_path
 
             df = pd.DataFrame(results)
             short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
-            df.to_csv('grid_search_result_%s_%s.csv' % (los_group,
+            df.to_csv('grid_search_result_%s_%s.csv' % (los_group['name'],
                                                         short_pretrain_path),
                       index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
     logger.info('DONE GRID SEARCH.')
+
+
+def train_process(los_group, pretrained_path, epochs, hidden_dim,
+                  optimizer_type, q_log):
+    logger.info('START LSTM: los_group=%s, pretrained_path=%s',
+                los_group['values'], pretrained_path)
+    results = train(hidden_dim=hidden_dim, epoch=epochs,
+                    optimizer_type=optimizer_type,
+                    pretrained_path=pretrained_path,
+                    los_group=los_group['values'])
+    for item in results:
+        item['los_group'] = los_group['name']
+        item['pretrained_path'] = pretrained_path
+
+    df = pd.DataFrame(results)
+    short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
+    df.to_csv('grid_search_result_%s_%s.csv' % (los_group['name'],
+                                                short_pretrain_path),
+              index=False)
+    logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
+                los_group['values'], pretrained_path)
+    q_log.put(df)
+
+
+def grid_search_multi_process(pretrained_dir, los_groups_path, processes=2):
+    """Summary
+    """
+    skip_los = []
+    skip_pretrained = []
+    epochs = 500
+    hidden_dim = 100
+    optimizer_type = 'adam'
+
+    pretrained_paths = [None]
+    pretrained_paths.extend(
+        [join(pretrained_dir, f) for f in listdir(pretrained_dir)
+         if isfile(join(pretrained_dir, f)) and '.vec' in f])
+    pretrained_paths = [
+        p for p in pretrained_paths if p not in skip_pretrained]
+
+    los_groups = data_loader.load_los_groups(los_groups_path)
+    los_groups = [l for l in los_groups if l not in skip_los]
+
+    logger.info('Total pretrained paths: %s',
+                ','.join([f if f is not None else 'None' for f in pretrained_paths]))
+    logger.info('Total los groups: %s',
+                ','.join([g['name'] for g in los_groups]))
+
+    # prepare arguments
+    m = multiprocessing.Manager()
+    q_log = m.Queue()
+    list_args = []
+    for los_group in los_groups:
+        for pretrained_path in reversed(pretrained_paths):
+            list_args.append((los_group, pretrained_path, epochs, hidden_dim,
+                              optimizer_type, q_log))
+    logger.info('Total cases: %s', len(list_args))
+
+    logger.info('START GRID SEARCH (multiprocessing)...')
+
+    # use mutiprocessing
+    if len(list_args) > 0:
+        # start x worker processes
+        with Pool(processes=processes) as pool:
+            start_pool = datetime.now()
+            logger.info('START POOL at %s', start_pool)
+            pool.starmap(train_process, list_args)
+
+            logger.info('DONE %s/%s cases', q_log.qsize(), len(list_args))
+            total_duration = (datetime.now() - start_pool).total_seconds()
+
+            while not q_log.empty():
+                result = q_log.get()
+                # todo
+
+            # Check there are no outstanding tasks
+            assert not pool._cache, 'cache = %r' % pool._cache
+
+    logger.info('DONE GRID SEARCH (multiprocessing).')

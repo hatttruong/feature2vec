@@ -136,10 +136,10 @@ def load_pretrained_vectors(pretrained_path, concept_definitions):
     return id_to_vectors, vector_size
 
 
-def get_los_group_idx(los_value, los_group):
-    los_group = sorted(los_group, reverse=True)
-    group_idx = len(los_group)
-    for x in los_group:
+def get_los_group_idx(los_value, los_splitters):
+    los_splitters = sorted(los_splitters, reverse=True)
+    group_idx = len(los_splitters)
+    for x in los_splitters:
         if los_value >= x:
             break
         else:
@@ -147,14 +147,14 @@ def get_los_group_idx(los_value, los_group):
     return group_idx
 
 
-def create_train_data(admission_id, los_value, los_group, concept_definitions):
+def create_train_data(admission_id, los_value, los_splitters, concept_definitions):
     """
     Return a list of event index in weights_matrix
 
     Args:
         admission_id (TYPE): Description
         los_value (float): days in hospital
-        los_group (TYPE): splitters in descending order
+        los_splitters (TYPE): splitters in descending order
         concept_definitions (TYPE): Description
 
     Returns:
@@ -181,7 +181,8 @@ def create_train_data(admission_id, los_value, los_group, concept_definitions):
             samples.append(
                 {'admission_id': admission_id,
                  'event_range': upper_bound,
-                 'los_group': get_los_group_idx(los_value - upper_bound * 1.0 / 24, los_group),
+                 'los_group': get_los_group_idx(
+                     los_value - upper_bound * 1.0 / 24, los_splitters),
                  'events': list(event_ids)
                  })
             upper_bound += step
@@ -242,14 +243,14 @@ def load_los_groups(los_groups_path=None):
     return los_groups
 
 
-def load_los_data(los_group, pretrained_path=None, min_threshold=5):
+def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
     """
     train/test data: is a list of dictionary
         {'hadm_id': 194126, 'los_group': 9, 'event_range': 6,
         'events': [1, 8, 120, 134, 144, 100529, 578098, ...]}
 
     Args:
-        los_group (TYPE): splitters in decensing order
+        los_splitters (TYPE): splitters in decensing order
         pretrained_path (None, optional): Description
 
     Returns:
@@ -276,7 +277,7 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
     for index, admission in enumerate(data_dict):
         temp_samples, event_ids = create_train_data(admission['hadm_id'],
                                                     admission['los_hospital'],
-                                                    los_group,
+                                                    los_splitters,
                                                     concept_definitions)
         samples.extend(temp_samples)
 
@@ -310,7 +311,7 @@ def load_los_data(los_group, pretrained_path=None, min_threshold=5):
 
     # define label to index
     label_to_idx = dict()
-    for i in range(len(los_group) + 1):
+    for i in range(len(los_splitters) + 1):
         label_to_idx[i] = i
 
     logger.info('feature size: %s, label size: %s',

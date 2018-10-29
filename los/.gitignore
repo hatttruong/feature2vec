@@ -101,3 +101,4 @@ src/test/test_save_dictionary_object.json
 
 # model
 *.bin
+*.csv
