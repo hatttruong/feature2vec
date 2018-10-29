@@ -99,11 +99,11 @@ def get_scores(y_true, y_pred, prefix=''):
     mi = metrics.mutual_info_score(y_true, y_pred)
     v_measure = metrics.v_measure_score(y_true, y_pred)
     return {prefix + 'acc': acc,
-            prefix + 'ari': ari,
-            prefix + 'ami': ami,
-            prefix + 'mmi': mmi,
-            prefix + 'mi': mi,
-            prefix + 'v_measure': v_measure,
+            # prefix + 'ari': ari,
+            # prefix + 'ami': ami,
+            # prefix + 'mmi': mmi,
+            # prefix + 'mi': mi,
+            # prefix + 'v_measure': v_measure,
             prefix + 'f1': f1_value,
             prefix + 'precision': precision_value,
             prefix + 'recall': recall_value,
@@ -333,7 +333,7 @@ def grid_search(pretrained_dir, los_groups_path):
 
             df = pd.DataFrame(results)
             short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
-            df.to_csv('grid_search_result_%s_%s.csv' % (los_group['name'],
+            df.to_csv('grid_search_result/result_%s_%s.csv' % (los_group['name'],
                                                         short_pretrain_path),
                       index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
@@ -355,7 +355,7 @@ def train_process(los_group, pretrained_path, epochs, hidden_dim,
 
     df = pd.DataFrame(results)
     short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
-    df.to_csv('grid_search_result_%s_%s.csv' % (los_group['name'],
+    df.to_csv('grid_search_result/result_%s_%s.csv' % (los_group['name'],
                                                 short_pretrain_path),
               index=False)
     logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',

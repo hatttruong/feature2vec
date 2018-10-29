@@ -87,7 +87,7 @@ def transform_events_to_features(admission_id, concept_definitions,
     return transformed_features
 
 
-def load_data(los_splitters):
+def load_data():
     """Summary
     """
     logger.info('START prepare data...')
@@ -106,25 +106,25 @@ def load_data(los_splitters):
 
     # load train data
     X_train = []
-    y_train = []
+    y_train_values = []
     X_test = []
-    y_test = []
+    y_test_values = []
     for index, admission in enumerate(data_dict):
         admission_id = admission['hadm_id']
 
-        # first 24h & 48h
-        for i in range(2):
+        step = 6
+        for i in range(6, 48 + step, step):
             # dictionary of {feature_name: value}
             transformed_features = transform_events_to_features(
-                admission_id, concept_definitions, within_hours=(i + 1) * 24)
-            true_label = data_loader.get_los_group_idx(
-                admission['los_hospital'] - i, los_splitters)
+                admission_id, concept_definitions, within_hours=i)
+            true_los_value = admission['los_hospital'] - i * 1.0 / 24
+
             if admission_id in train_admission_ids:
                 X_train.append(transformed_features)
-                y_train.append(true_label)
+                y_train_values.append(true_los_value)
             else:
                 X_test.append(transformed_features)
-                y_test.append(true_label)
+                y_test_values.append(true_los_value)
         sys.stdout.write('\r')
         sys.stdout.write('load data for %s admissions...' % (index + 1))
         sys.stdout.flush()
@@ -177,10 +177,22 @@ def load_data(los_splitters):
                  X_test_df.isnull().values.sum())
 
     logger.info('DONE prepare data.')
-    return X_train_df.values, y_train, X_test_df.values, y_test
+    return X_train_df.values, y_train_values, X_test_df.values, y_test_values
 
 
 def rf_gridsearch(X_train, y_train, X_test, y_test, is_binary=True):
+    """Summary
+
+    Args:
+        X_train (TYPE): Description
+        y_train (TYPE): Description
+        X_test (TYPE): Description
+        y_test (TYPE): Description
+        is_binary (bool, optional): Description
+    """
+    average = 'binary' if is_binary else 'weighted'
+    logger.info('is_binary: %s, average=%s', is_binary, average)
+
     n_estimators = [int(x) for x in np.linspace(start=200, stop=5000, num=10)]
     max_features = ['auto', 'sqrt', 'log2']
     max_depth = [int(x) for x in np.linspace(100, 1000, num=5)]
@@ -198,61 +210,87 @@ def rf_gridsearch(X_train, y_train, X_test, y_test, is_binary=True):
                         'bootstrap': bootstrap,
                         "criterion": criterion}
 
-    scores = ['accuracy']
+    score = 'accuracy'
 
-    for score in scores:
-        logger.info("# Tuning hyper-parameters for %s", score)
+    logger.info("# Tuning hyper-parameters for %s", score)
 
-        # clf = GridSearchCV(RandomForestClassifier(), tuned_parameters, cv=5,
-        #                    scoring='%s' % score, n_jobs=-1, verbose=2)
-        clf = RandomizedSearchCV(estimator=RandomForestClassifier(),
-                                 param_distributions=tuned_parameters,
-                                 n_iter=20, scoring='%s' % score, cv=3,
-                                 verbose=2, random_state=42, n_jobs=-1)
-        clf.fit(X_train, y_train)
+    # clf = GridSearchCV(RandomForestClassifier(), tuned_parameters, cv=5,
+    #                    scoring='%s' % score, n_jobs=-1, verbose=2)
+    clf = RandomizedSearchCV(estimator=RandomForestClassifier(),
+                             param_distributions=tuned_parameters,
+                             n_iter=20, scoring='%s' % score, cv=3,
+                             verbose=2, random_state=42, n_jobs=-1)
+    clf.fit(X_train, y_train)
 
-        logger.info("Best parameters set found on development set:")
-        logger.info(clf.best_params_)
-        logger.info("Grid scores on development set:")
-        means = clf.cv_results_['mean_test_score']
-        stds = clf.cv_results_['std_test_score']
-        for mean, std, params in zip(means, stds, clf.cv_results_['params']):
-            logger.info("%0.3f (+/-%0.03f) for %r", mean, std * 2, params)
+    logger.info("Best parameters set found on development set:")
+    logger.info(clf.best_params_)
+    logger.info("Grid scores on development set:")
+    means = clf.cv_results_['mean_test_score']
+    stds = clf.cv_results_['std_test_score']
+    for mean, std, params in zip(means, stds, clf.cv_results_['params']):
+        logger.info("%0.3f (+/-%0.03f) for %r", mean, std * 2, params)
 
-        logger.info("Detailed classification report:")
-        logger.info("The model is trained on the full development set.")
-        logger.info("The scores are computed on the full evaluation set.")
-        y_true, y_pred = y_test, clf.predict(X_test)
-        logger.info('accuracy: %s', accuracy_score(y_true, y_pred))
+    logger.info("Detailed classification report:")
+    logger.info("The model is trained on the full development set.")
+    logger.info("The scores are computed on the full evaluation set.")
+    y_true, y_pred = y_test, clf.predict(X_test)
 
-        average = 'binary' if is_binary else 'weighted'
-        logger.info('f1_score: %s', f1_score(y_true, y_pred, average=average))
-        logger.info('precision_score: %s', precision_score(
-            y_true, y_pred, average=average))
-        logger.info('recall_score: %s', recall_score(
-            y_true, y_pred, average=average))
-        logger.info(classification_report(y_true, y_pred))
-        logger.info('Confusion_matrix: \n%s',
-                    confusion_matrix(y_true, y_pred))
+    result = {}
+    result['test_acc'] = accuracy_score(y_true, y_pred)
+    result['test_f1'] = f1_score(y_true, y_pred, average=average)
+    result['test_precision'] = precision_score(y_true, y_pred, average=average)
+    result['test_recall'] = recall_score(y_true, y_pred, average=average)
+
+    logger.info('accuracy: %s', result['test_acc'])
+    logger.info('f1_score: %s', result['test_f1'])
+    logger.info('precision_score: %s', result['test_precision'])
+    logger.info('recall_score: %s', result['test_recall'])
+    logger.info(classification_report(y_true, y_pred))
+    logger.info('Confusion_matrix: \n%s',
+                confusion_matrix(y_true, y_pred))
+
+    return result
+
+
+def transform_los_value_to_label(los_values, los_splitters):
+
+    return
+    pass
 
 
 def rf_experiments():
     los_groups = data_loader.load_los_groups()
     logger.info('Total los groups: %s', los_groups)
 
-    # START Ad-hoc
-    skip = 0
-    # END ad-hoc
-    for los_group in los_groups:
-        if skip > 0:
-            skip -= 1
-            continue
-        logger.info('START train with los_group=%s', los_group['name'])
+    X_train, y_train_values, X_test, y_test_values = load_data()
 
-        X_train, y_train, X_test, y_test = load_data(los_group['values'])
-        rf_gridsearch(X_train, y_train, X_test, y_test)
+    # # START Ad-hoc
+    # skip = 0
+    # # END ad-hoc
+    results = list()
+    for los_group in los_groups:
+        # if skip > 0:
+        #     skip -= 1
+        #     continue
+        logger.info('START train with los_group=%s, values=%s',
+                    los_group['name'], los_group['values'])
+
+        y_train = [data_loader.get_los_group_idx(
+            v, los_group['values']) for v in y_train_values]
+
+        y_test = [data_loader.get_los_group_idx(
+            v, los_group['values']) for v in y_test_values]
+
+        temp_res = rf_gridsearch(X_train, y_train, X_test, y_test,
+                                 is_binary=len(los_group['values']) == 1)
+
+        temp_res['los_group'] = los_group['name']
+        results.append(temp_res)
 
         logger.info('DONE train with los_group=%s', los_group['name'])
+
+    df = pd.DataFrame(results)
+    df.to_csv('grid_search_result_RF.csv', index=False)
 
 
 logging.basicConfig(
