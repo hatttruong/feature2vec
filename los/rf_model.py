@@ -16,6 +16,8 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 
+import lstm_model
+
 # define a Handler which writes INFO messages or higher to the sys.stderr
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
@@ -221,6 +223,8 @@ def rf_gridsearch(X_train, y_train, X_test, y_test, is_binary=True):
                              n_iter=20, scoring='%s' % score, cv=3,
                              verbose=2, random_state=42, n_jobs=-1)
     clf.fit(X_train, y_train)
+    result = lstm_model.get_scores(y_train, clf.predict(X_train),
+        prefix='train_')
 
     logger.info("Best parameters set found on development set:")
     logger.info(clf.best_params_)
@@ -234,12 +238,7 @@ def rf_gridsearch(X_train, y_train, X_test, y_test, is_binary=True):
     logger.info("The model is trained on the full development set.")
     logger.info("The scores are computed on the full evaluation set.")
     y_true, y_pred = y_test, clf.predict(X_test)
-
-    result = {}
-    result['test_acc'] = accuracy_score(y_true, y_pred)
-    result['test_f1'] = f1_score(y_true, y_pred, average=average)
-    result['test_precision'] = precision_score(y_true, y_pred, average=average)
-    result['test_recall'] = recall_score(y_true, y_pred, average=average)
+    result.update(lstm_model.get_scores(y_true, y_pred, prefix='test_'))
 
     logger.info('accuracy: %s', result['test_acc'])
     logger.info('f1_score: %s', result['test_f1'])
@@ -283,15 +282,18 @@ def rf_experiments():
 
         temp_res = rf_gridsearch(X_train, y_train, X_test, y_test,
                                  is_binary=len(los_group['values']) == 1)
-
         temp_res['los_group'] = los_group['name']
         results.append(temp_res)
 
+        model_path = 'grid_search_result/result_RF_%s.csv' % los_group['name']
+        df = pd.DataFrame([temp_res])
+        df.to_csv(model_path, index=False)
+
         logger.info('DONE train with los_group=%s', los_group['name'])
 
+    model_path = 'grid_search_result/result_RF.csv'
     df = pd.DataFrame(results)
-    df.to_csv('grid_search_result_RF.csv', index=False)
-
+    df.to_csv(model_path, index=False)
 
 logging.basicConfig(
     filename='log_rf_model.log',

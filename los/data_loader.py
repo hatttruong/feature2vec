@@ -96,7 +96,7 @@ def load_concept_definition():
     return concepts
 
 
-def load_pretrained_vectors(pretrained_path, concept_definitions):
+def load_pretrained_vectors(pretrained_path, concept_definitions, case_idx=0):
     """
     TODO
 
@@ -131,7 +131,7 @@ def load_pretrained_vectors(pretrained_path, concept_definitions):
         sys.stdout.flush()
     sys.stdout.write('\r')
 
-    logger.info('done load_pretrained_vectors')
+    logger.info('CASE=%s: done load_pretrained_vectors', case_idx)
 
     return id_to_vectors, vector_size
 
@@ -193,7 +193,7 @@ def create_train_data(admission_id, los_value, los_splitters, concept_definition
     return samples, event_ids
 
 
-def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors):
+def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors, case_idx=0):
     """
     build weights matrix based on pretrained vectors
 
@@ -205,7 +205,8 @@ def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors):
     Returns:
         TYPE: Description
     """
-    logger.info('start build_weights_matrix, emb_dim=%s', emb_dim)
+    logger.info('CASE=%s: start build_weights_matrix, emb_dim=%s',
+                case_idx, emb_dim)
     matrix_len = len(feature_to_idx)
     weights_matrix = np.zeros((matrix_len, emb_dim))
     feature_found = 0
@@ -223,12 +224,13 @@ def build_weights_matrix(feature_to_idx, emb_dim, id_to_vectors):
 
         done += 1
         sys.stdout.write('\r')
-        sys.stdout.write('build weights matrix for %s features...' % done)
+        sys.stdout.write(
+            'CASE=%s: build weights matrix for %s features...' % (case_idx, done))
         sys.stdout.flush()
     sys.stdout.write('\r')
 
-    logger.info('found %s/%s features in pretrained',
-                feature_found, len(feature_to_idx))
+    logger.info('CASE=%s: found %s/%s features in pretrained',
+                case_idx, feature_found, len(feature_to_idx))
     return weights_matrix
 
 
@@ -243,7 +245,8 @@ def load_los_groups(los_groups_path=None):
     return los_groups
 
 
-def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
+def load_los_data(los_splitters, pretrained_path=None, min_threshold=5,
+                  case_idx=0):
     """
     train/test data: is a list of dictionary
         {'hadm_id': 194126, 'los_group': 9, 'event_range': 6,
@@ -252,12 +255,12 @@ def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
     Args:
         los_splitters (TYPE): splitters in decensing order
         pretrained_path (None, optional): Description
-
-    Returns:
-        DICT: train_data, test_data, feature_to_idx, label_to_idx, weights_matrix
+        min_threshold (int, optional): Description
+        case_idx (int, optional): Description
 
     """
-    logger.info('loading LOS data from %s', DATA_FILE_PATH)
+    logger.info('CASE=%s: loading LOS data from %s',
+                case_idx, DATA_FILE_PATH)
 
     data_df = pd.read_csv(DATA_FILE_PATH)
     data_dict = data_df[['hadm_id', 'los_hospital']].to_dict('records')
@@ -270,7 +273,7 @@ def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
     test_admission_ids = [x['hadm_id'] for x in data_dict[split:]]
 
     # for each admissions, create samples with different time range
-    logger.info('load events for each admission')
+    logger.info('CASE=%s: \tload events for each admission', case_idx)
     concept_definitions = load_concept_definition()
     features = collections.Counter()
     samples = []
@@ -285,12 +288,12 @@ def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
 
         sys.stdout.write('\r')
         sys.stdout.write(
-            'create train data for %s admissions, total samples: %s' % (
-                index, len(samples)))
+            'CASE=%s: create train data for %s admissions, total samples: %s' % (
+                case_idx, index, len(samples)))
         sys.stdout.flush()
     sys.stdout.write('\r')
-    logger.info('create train data for %s admissions, total samples: %s' % (
-                len(data_dict), len(samples)))
+    logger.info('CASE=%s: create train data for %s admissions, total samples: %s' % (
+                case_idx, len(data_dict), len(samples)))
 
     # define feature to index, keep features with frequency >= min_threshold
     feature_to_idx = dict()
@@ -314,16 +317,16 @@ def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
     for i in range(len(los_splitters) + 1):
         label_to_idx[i] = i
 
-    logger.info('feature size: %s, label size: %s',
+    logger.info('CASE=%s: feature size: %s, label size: %s', case_idx,
                 len(feature_to_idx), len(label_to_idx))
 
     # load vectors for each features
     weights_matrix = None
     if pretrained_path is not None:
         id_to_vectors, vector_size = load_pretrained_vectors(
-            pretrained_path, concept_definitions)
+            pretrained_path, concept_definitions, case_idx=case_idx)
         weights_matrix = build_weights_matrix(feature_to_idx, vector_size,
-                                              id_to_vectors)
+                                              id_to_vectors, case_idx=case_idx)
 
     # split train/test
     train_data = [s for s in samples if s[
@@ -331,9 +334,10 @@ def load_los_data(los_splitters, pretrained_path=None, min_threshold=5):
     test_data = [s for s in samples if s['admission_id'] in test_admission_ids]
     random.shuffle(train_data)
     random.shuffle(test_data)
-    logger.info('train: %s, test: %s', len(train_data), len(test_data))
+    logger.info('CASE=%s: train: %s, test: %s', case_idx,
+                len(train_data), len(test_data))
 
-    logger.info('loading data done!')
+    logger.info('CASE=%s: loading data done!', case_idx)
     return {'train_data': train_data,
             'test_data': test_data,
             'feature_to_idx': feature_to_idx,

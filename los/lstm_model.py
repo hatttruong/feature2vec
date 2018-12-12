@@ -23,6 +23,7 @@ from sklearn.metrics import recall_score
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
+from datetime import datetime
 from multiprocessing import Pool
 import multiprocessing
 
@@ -80,7 +81,7 @@ class LstmLosClassifier(nn.Module):
         return log_probs
 
 
-def get_scores(y_true, y_pred, prefix=''):
+def get_scores(y_true, y_pred, prefix='', case_idx=0):
     assert len(y_true) == len(y_pred)
     is_binary = True if len(set(y_true)) == 2 else False
 
@@ -90,20 +91,9 @@ def get_scores(y_true, y_pred, prefix=''):
     f1_value = f1_score(y_true, y_pred, average=average)
     precision_value = precision_score(y_true, y_pred, average=average)
     recall_value = recall_score(y_true, y_pred, average=average)
-    logger.info('Confusion_matrix: \n%s',
+    logger.info('CASE %s: Confusion_matrix: \n%s', case_idx,
                 confusion_matrix(y_true, y_pred))
-
-    ari = metrics.adjusted_rand_score(y_true, y_pred)
-    ami = metrics.adjusted_mutual_info_score(y_true, y_pred)
-    mmi = metrics.normalized_mutual_info_score(y_true, y_pred)
-    mi = metrics.mutual_info_score(y_true, y_pred)
-    v_measure = metrics.v_measure_score(y_true, y_pred)
     return {prefix + 'acc': acc,
-            # prefix + 'ari': ari,
-            # prefix + 'ami': ami,
-            # prefix + 'mmi': mmi,
-            # prefix + 'mi': mi,
-            # prefix + 'v_measure': v_measure,
             prefix + 'f1': f1_value,
             prefix + 'precision': precision_value,
             prefix + 'recall': recall_value,
@@ -111,7 +101,7 @@ def get_scores(y_true, y_pred, prefix=''):
 
 
 def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
-          pretrained_path=None, los_splitters=[], save_best_model=False):
+          pretrained_path=None, los_splitters=[], model_name=None, case_idx=0):
     """Summary
 
     Args:
@@ -122,28 +112,26 @@ def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
         clip (float, optional): Description
         pretrained_path (TYPE): Description
         los_splitters (list, optional): Description
-        save_best_model (bool, optional): Description
+        model_name (None, optional): Description
 
     Returns:
         list: list of dictionary
             {epoch: 1, avg_loss: 0, train_acc: 0, test_acc: 0}
 
-    Deleted Parameters:
-        los_groups (str, optional): Description
     """
     EMBEDDING_DIM = 100
     MAX_NO_UP_EPOCH = 3
 
-    logger.info('Train LSTM with parameters: %s', locals())
+    logger.info('CASE=%s: train LSTM with parameters: %s', case_idx, locals())
     result = data_loader.load_los_data(
-        los_splitters=los_splitters, pretrained_path=pretrained_path)
+        los_splitters=los_splitters, pretrained_path=pretrained_path,
+        case_idx=case_idx)
     train_data = result['train_data']
     test_data = result['test_data']
     feature_to_idx = result['feature_to_idx']
     label_to_idx = result['label_to_idx']
     weights_matrix = result['weights_matrix']
 
-    best_test_acc = 0.0
     model = LstmLosClassifier(embedding_dim=EMBEDDING_DIM,
                               hidden_dim=hidden_dim,
                               feature_size=len(feature_to_idx),
@@ -156,48 +144,86 @@ def train(hidden_dim=50, epoch=5, optimizer_type='adam', lr=1e-3, clip=0.25,
     if optimizer_type == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    no_up = 0
+    no_up_f1_score = 0
+    no_up_acc_score = 0
+
+    best_test_acc = 0.0
+    best_test_f1 = 0.0
+
     epoch_results = []
     for i in range(epoch):
         random.shuffle(train_data)
-        logger.info('Epoch: %d start!', i + 1)
+        logger.info('CASE=%s: Epoch: %d start!', case_idx, i + 1)
         temp_result, avg_loss = train_epoch(model, train_data, loss_function,
                                             optimizer, feature_to_idx,
-                                            label_to_idx, i + 1, lr, clip)
+                                            label_to_idx, i + 1, lr, clip,
+                                            case_idx=case_idx)
         # logger.info('train_epoch result: %s', temp_result)
         test_scores = evaluate(model, test_data, loss_function,
-                               feature_to_idx, label_to_idx)
+                               feature_to_idx, label_to_idx, case_idx=case_idx)
         # logger.info('test_scores: %s', test_scores)
         temp_result.update(test_scores)
         epoch_results.append(temp_result)
 
         # stop training if avg_loss is nan
         if avg_loss == float('nan'):
-            logger.info('WARNING: avg_loss is nan, STOP training')
+            logger.info(
+                'CASE=%s: WARNING: avg_loss is nan, STOP training', case_idx)
             break
 
+        test_f1 = test_scores['test_f1']
         test_acc = test_scores['test_acc']
-        if test_acc > best_test_acc:
-            best_test_acc = test_acc
-            if save_best_model:
-                os.system('rm ../models/los_best_model_acc_*.model')
-                logger.info('New Best Test!!!')
+
+        if test_f1 > best_test_f1:
+            best_test_f1 = test_f1
+            if model_name is not None:
+                os.system('rm ../models/los_%s_f1_*.model' % model_name)
+                logger.info('CASE=%s: New Best Test!!! (F1-score)', case_idx)
                 torch.save(model.state_dict(),
-                           '../models/los_best_model_acc_' +
-                           str(int(test_acc * 10000)) + '.model')
-            no_up = 0
+                           '../models/los_%s_f1_%s.model' % (model_name,
+                                                             str(int(test_f1 * 10000))))
+            no_up_f1_score = 0
+            no_up_acc_score = 0
+
         else:
-            no_up += 1
-            logger.info('WARNING: No better model after %s epoch', no_up)
-            if no_up >= MAX_NO_UP_EPOCH:
+            no_up_f1_score += 1
+            logger.info(
+                'CASE=%s: WARNING: No better model after %s epoch (F1)', case_idx,
+                no_up_f1_score)
+
+            if test_acc > best_test_f1:
+                best_test_f1 = test_acc
+                if model_name is not None:
+                    os.system('rm ../models/los_%s_acc_*.model' % model_name)
+                    logger.info('CASE=%s: New Best Test!!! (acc)', case_idx)
+                    torch.save(model.state_dict(),
+                               '../models/los_%s_acc_%s.model' % (model_name,
+                                                                  str(int(test_acc * 10000))))
+                no_up_acc_score = 0
+            else:
+                no_up_acc_score += 1
                 logger.info(
-                    'STOP TRAINING: No better model after %s epoch',
-                    MAX_NO_UP_EPOCH)
+                    'CASE=%s: WARNING: No better model after %s epoch (accuracy)',
+                    case_idx, no_up_acc_score)
+
+            # consider F1 score first, if it is greater than zero
+            # else, consider accuracy
+            if best_test_f1 > 0:
+                if no_up_f1_score >= MAX_NO_UP_EPOCH:
+                    logger.info(
+                        'CASE=%s: STOP TRAINING: No better model (F1) after %s epoch',
+                        case_idx, MAX_NO_UP_EPOCH)
+                    break
+            elif no_up_acc_score >= MAX_NO_UP_EPOCH:
+                logger.info(
+                    'CASE=%s: STOP TRAINING: No better model (accuracy) after %s epoch',
+                    case_idx, MAX_NO_UP_EPOCH)
                 break
+
     return epoch_results
 
 
-def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
+def evaluate(model, data, loss_function, feature_to_idx, label_to_idx, case_idx=0):
     model.eval()
     avg_loss = 0.0
     truth_res = []
@@ -218,14 +244,14 @@ def evaluate(model, data, loss_function, feature_to_idx, label_to_idx):
         loss = loss_function(pred, label)
         avg_loss += loss.item()
     avg_loss /= len(data)
-    scores = get_scores(truth_res, pred_res, prefix='test_')
-    logger.info('Evaluate: \tavg_loss:%g \ttest acc: %s',
-                avg_loss, scores['test_acc'])
+    scores = get_scores(truth_res, pred_res, prefix='test_', case_idx=case_idx)
+    logger.info('CASE=%s: Evaluate: \tavg_loss:%g \ttest acc: %s \ttest f1: %g ',
+                case_idx, avg_loss, scores['test_acc'], scores['test_f1'])
     return scores
 
 
 def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
-                label_to_idx, epoch_th, lr, clip):
+                label_to_idx, epoch_th, lr, clip, case_idx=0):
     """Summary
 
     Args:
@@ -266,8 +292,8 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
         avg_loss += loss.item()
         count += 1
         if count % 500 == 0:
-            logger.info('Epoch: %d \titerations: %d \tloss: %g',
-                        epoch_th, count, loss.item())
+            logger.info('CASE=%s: Epoch: %d \titerations: %d \tloss: %g',
+                        case_idx, epoch_th, count, loss.item())
 
         loss.backward()
 
@@ -286,10 +312,12 @@ def train_epoch(model, train_data, loss_function, optimizer, feature_to_idx,
     # logger.debug('truth_res: %s', truth_res)
     # logger.debug('pred_res: %s', pred_res)
 
-    scores = get_scores(truth_res, pred_res, prefix='train_')
+    scores = get_scores(truth_res, pred_res,
+                        prefix='train_', case_idx=case_idx)
     scores.update({'epoch': epoch_th, 'avg_loss': avg_loss})
-    logger.info('Epoch: %d done. \tavg_loss: %g \tacc: %g',
-                epoch_th, avg_loss, scores['train_acc'])
+    logger.info(
+        'CASE=%s: Epoch: %d done. \tavg_loss: %g \ttrain_acc: %g \ttrain_f1: %g',
+        case_idx, epoch_th, avg_loss, scores['train_acc'], scores['train_f1'])
 
     return scores, avg_loss
 
@@ -334,7 +362,7 @@ def grid_search(pretrained_dir, los_groups_path):
             df = pd.DataFrame(results)
             short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
             df.to_csv('grid_search_result/result_%s_%s.csv' % (los_group['name'],
-                                                        short_pretrain_path),
+                                                               short_pretrain_path),
                       index=False)
             logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                         los_group['values'], pretrained_path)
@@ -342,22 +370,27 @@ def grid_search(pretrained_dir, los_groups_path):
 
 
 def train_process(los_group, pretrained_path, epochs, hidden_dim,
-                  optimizer_type, q_log):
+                  optimizer_type, q_log, case_idx):
     logger.info('START LSTM: los_group=%s, pretrained_path=%s',
                 los_group['values'], pretrained_path)
+
+    short_pretrain_path = 'None'
+    if pretrained_path is not None:
+        short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
+    model_name = '%s_%s' % (los_group['name'], short_pretrain_path)
+
     results = train(hidden_dim=hidden_dim, epoch=epochs,
                     optimizer_type=optimizer_type,
                     pretrained_path=pretrained_path,
-                    los_group=los_group['values'])
+                    los_splitters=los_group['values'],
+                    model_name=model_name,
+                    case_idx=case_idx)
     for item in results:
         item['los_group'] = los_group['name']
-        item['pretrained_path'] = pretrained_path
+        item['pretrained_path'] = short_pretrain_path
 
     df = pd.DataFrame(results)
-    short_pretrain_path = pretrained_path.split('/')[-1].split('.')[0]
-    df.to_csv('grid_search_result/result_%s_%s.csv' % (los_group['name'],
-                                                short_pretrain_path),
-              index=False)
+    df.to_csv('grid_search_result/result_%s.csv' % model_name, index=False)
     logger.info('DONE LSTM: los_group=%s, pretrained_path=%s',
                 los_group['values'], pretrained_path)
     q_log.put(df)
@@ -394,7 +427,9 @@ def grid_search_multi_process(pretrained_dir, los_groups_path, processes=2):
     for los_group in los_groups:
         for pretrained_path in reversed(pretrained_paths):
             list_args.append((los_group, pretrained_path, epochs, hidden_dim,
-                              optimizer_type, q_log))
+                              optimizer_type, q_log, len(list_args)))
+    for index, items in enumerate(list_args):
+        logger.info('CASE %s: %s', index, items)
     logger.info('Total cases: %s', len(list_args))
 
     logger.info('START GRID SEARCH (multiprocessing)...')

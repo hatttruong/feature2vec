@@ -1,0 +1,4 @@
+avg_loss,epoch,los_group,pretrained_path,test_acc,test_f1,test_precision,test_recall,train_acc,train_f1,train_precision,train_recall
+0.19963209914780056,1,95-percentile,../models/skipgram_ce_nm_ws_60_dim_100_epoch_1.vec,0.9450852126011362,0.0,0.0,0.0,0.9491165041425325,0.0028735632183908046,0.16666666666666666,0.0014492753623188406
+0.19471143633924767,2,95-percentile,../models/skipgram_ce_nm_ws_60_dim_100_epoch_1.vec,0.9450852126011362,0.0,0.0,0.0,0.9494097807757167,0.0,0.0,0.0
+0.18942107269950814,3,95-percentile,../models/skipgram_ce_nm_ws_60_dim_100_epoch_1.vec,0.9450852126011362,0.0,0.0,0.0,0.9493364616174206,0.0,0.0,0.0
